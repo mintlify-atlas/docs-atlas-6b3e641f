@@ -1,0 +1,123 @@
+---
+title: XML Project Format
+description: Overview of mkpsxiso's XML project file structure for building PlayStation ISO images
+---
+
+The mkpsxiso XML project file defines the structure and content of a PlayStation ISO image. It supports multi-disc projects, CD audio tracks, and comprehensive file system configuration.
+
+## Basic Structure
+
+An XML project file consists of one or more `<iso_project>` elements, each defining a complete disc image:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<iso_project image_name="myimage.bin" cue_sheet="myimage.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="MYDISC"
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <!-- Files and directories go here -->
+    </directory_tree>
+  </track>
+  
+  <!-- Optional audio tracks -->
+  <track type="audio" source="track02.wav"/>
+</iso_project>
+```
+
+## Root Elements
+
+### iso_project
+
+The root container for a single disc image. Multiple `<iso_project>` elements can be specified in one XML file for multi-disc games.
+
+<ParamField path="image_name" type="string" required>
+  File name of the ISO image file to generate (e.g., `myimage.bin`)
+</ParamField>
+
+<ParamField path="cue_sheet" type="string">
+  File name of the cue sheet for the image file. Required if more than one track is specified or if using CD audio
+</ParamField>
+
+<ParamField path="no_xa" type="boolean" default="false">
+  If set to a non-zero value, creates the image without CD-XA file attributes (plain ISO9660)
+</ParamField>
+
+## Child Elements
+
+Each `<iso_project>` must contain:
+
+- At least one `<track>` element (see [Tracks](/xml/tracks))
+- The first track should be a data track containing:
+  - Optional `<identifiers>` element (see [Identifiers](/xml/identifiers))
+  - Optional `<license>` element
+  - Required `<directory_tree>` element (see [Directory Tree](/xml/directory-tree))
+
+## Multi-Disc Projects
+
+For multi-disc games, specify multiple `<iso_project>` elements:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Disc 1 -->
+<iso_project image_name="game_disc1.bin" cue_sheet="game_disc1.cue">
+  <track type="data">
+    <!-- ... -->
+  </track>
+</iso_project>
+
+<!-- Disc 2 -->
+<iso_project image_name="game_disc2.bin" cue_sheet="game_disc2.cue">
+  <track type="data">
+    <!-- ... -->
+  </track>
+</iso_project>
+```
+
+## License File
+
+The optional `<license>` element specifies a PlayStation license file to inject into the ISO:
+
+```xml
+<license file="licensea.dat"/>
+```
+
+<ParamField path="file" type="string" required>
+  Path to the license file. Must be in raw 2336 byte sector format, like those included with the PlayStation Programmer's Tool SDK (PsyQ SDK) in `PS\CDGEN\LCNSFILE`
+</ParamField>
+
+<Note>
+  License data is not included with mkpsxiso to avoid legal issues. You must provide your own license file from the official SDK.
+</Note>
+
+## Bootable ISOs
+
+For the ISO to be bootable on a PlayStation:
+
+1. The `system` and `application` identifiers must be set to `PLAYSTATION`
+2. A valid license file must be included
+3. A `SYSTEM.CNF` file must be present in the root directory
+4. The executable referenced in `SYSTEM.CNF` must exist
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tracks" icon="compact-disc" href="/xml/tracks">
+    Learn about data and audio track configuration
+  </Card>
+  <Card title="Identifiers" icon="tag" href="/xml/identifiers">
+    Configure volume and system identifiers
+  </Card>
+  <Card title="Directory Tree" icon="folder-tree" href="/xml/directory-tree">
+    Define the file system structure
+  </Card>
+  <Card title="File Elements" icon="file" href="/xml/file-elements">
+    Add files with different types and attributes
+  </Card>
+</CardGroup>

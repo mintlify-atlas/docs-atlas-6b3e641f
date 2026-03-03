@@ -1,0 +1,341 @@
+---
+title: Troubleshooting
+description: Known issues, limitations, and workarounds when using mkpsxiso
+---
+
+This page documents known issues, limitations, and workarounds for mkpsxiso and dumpsxiso.
+
+## Filesystem Issues
+
+### Timestamp Limitations on ext4/xfs
+
+<Warning>
+  On `ext4` and `xfs` filesystems, the minimum timestamp you can set is **1901/12/13**. This makes certain games impossible to rebuild 1:1.
+</Warning>
+
+**Affected Games:**
+- Crash Bash
+- Spyro 3
+- Vagrant Story
+- Other games with files/folders dated before 1901/12/13
+
+**Workaround:**
+
+Work on a filesystem with better date support:
+- `f2fs`
+- `ntfs`
+- `btrfs`
+
+These filesystems support a wider range of timestamps and allow 1:1 rebuilds of games with older file dates.
+
+## Directory Structure Issues on Windows
+
+### Subdirectory Browsing Problem
+
+<Warning>
+  On Windows, certain directory structures may prevent browsing subdirectories. This appears to be an OS bug, not a mkpsxiso issue.
+</Warning>
+
+**Problem Description:**
+
+When creating a disc image with the following structure pattern:
+
+```xml
+<dir name="dira">
+    <dir name="subdir1a">
+        <dir name="subdiraa"/>
+        <dir name="subdirab"/>
+        <dir name="subdirac"/>
+    </dir>
+    <dir name="subdir1b"/>
+    <dir name="subdir1c"/>
+</dir>
+
+<dir name="dirb">
+    <dir name="subdir2a"/>
+    <dir name="subdir2b"/>
+    <dir name="subdir2c">
+        <dir name="subdirba"/>
+        <dir name="subdirbb"/>
+        <dir name="subdirbc"/>
+    </dir>
+</dir>
+
+<dir name="dirc">
+    <dir name="subdir3a"/>
+    <dir name="subdir3b"/>
+    <dir name="subdir3c"/>
+</dir>
+```
+
+Browsing subdirectories in `dirb` and `dirc` may:
+- Not list contents when browsing in Windows Explorer
+- Show "permission denied" errors in command prompt
+- Fail to access directories that clearly exist
+
+**Evidence it's an OS Bug:**
+- Disc image tools like CDmage display contents without issue
+- The issue persists with disc images created by BuildCD
+- Same images work correctly on other operating systems
+
+**Workarounds:**
+
+1. **Minimize Identically Named Directories**
+   - Avoid having many subdirectories with similar naming patterns
+   - Use more distinct directory names across different parent directories
+
+2. **Test Before Release**
+   - Always test generated disc images on Windows before considering them ready
+   - Verify directory browsing works correctly
+   - Test on actual hardware or accurate emulators
+
+3. **Use Disc Image Tools**
+   - Tools like CDmage can browse the image correctly
+   - Extract and verify file contents using specialized tools
+
+## Source File Issues
+
+### XA/STR File Validation
+
+<Warning>
+  mkpsxiso performs strict validation on XA and STR source files. Improperly ripped or encoded files will cause errors.
+</Warning>
+
+**Required Headers:**
+- Proper RIFF headers
+- Valid XA/STR subheaders
+- Correct sector formatting
+
+**Common Errors:**
+- Missing or corrupt RIFF header
+- Invalid subheader structure
+- Incorrect sector mode detection
+
+**Solution:**
+
+Ensure XA/STR files are:
+- Dumped correctly from original media using dumpsxiso or similar tools
+- Not re-encoded or modified by tools that don't understand XA format
+- Validated before attempting to build the ISO
+
+### DA Audio File Size Calculation
+
+Versions prior to 1.20 had incorrect file size calculation for STR and DA audio files. This was fixed in Version 1.20.
+
+If you encounter DA audio file issues:
+- Update to Version 2.00 or later
+- Verify audio file formats are supported (WAV, FLAC, PCM, MP3)
+- Check that pregap values are specified correctly for CDDA tracks
+
+## Build Errors
+
+### Zero-Byte Files
+
+Prior to Version 2.20, zero-byte files did not have a whole sector allocated. This could cause filesystem inconsistencies.
+
+**Solution:**
+- Use Version 2.20 or later
+- Zero-byte files now properly allocated
+
+### Directory Records Spanning Sectors
+
+Older versions had bugs with directory records spanning more than one sector.
+
+**Symptoms:**
+- Missing files or directories
+- Corrupt directory listings
+- Files overwritten by directory records
+
+**Solution:**
+- Use Version 2.00 or later
+- Directory record spanning properly fixed
+- Linear write implementation prevents corruption
+
+## Obfuscated/Protected Discs
+
+### Highly Obfuscated Games
+
+<Warning>
+  Some games use extreme obfuscation that makes dumping difficult.
+</Warning>
+
+**Examples:**
+- Chrono Cross
+- Xenogears
+- Games with corrupted directory records
+- Games with SUSP (System Use Sharing Protocol)
+
+**Solution:**
+
+Use dumpsxiso with special flags:
+
+```bash
+# Force dump of highly obfuscated games
+dumpsxiso --force image.bin
+
+# Extract all files in raw format
+dumpsxiso --raw image.bin
+
+# Use path table extraction for obfuscated filesystems
+dumpsxiso --path-table image.bin
+```
+
+Version 2.20+ includes:
+- `--force` argument for very obfuscated games
+- Hack to detect problematic ISOs with little-endian attributes
+- Crash fix for corrupted directory records or SUSP
+
+### Path Table Obfuscation
+
+Some games hide files by manipulating the directory structure.
+
+**Solution:**
+
+Use path table extraction (Version 2.04+):
+
+```bash
+dumpsxiso --path-table image.bin
+```
+
+This extracts every known directory in the path table, bypassing normal directory traversal.
+
+## Build Performance
+
+### Large File Handling
+
+Version 2.03 fixed a crash when building images with large files.
+
+**Tips for Large Projects:**
+- Use memory-mapped ISO writing (enabled by default in 2.00+)
+- Ensure sufficient disk space for output
+- Use 64KiB buffer size for better I/O (dumpsxiso 2.20+)
+
+### Directories with Many Files
+
+Version 2.03 fixed an ISO generation bug with directories containing many files.
+
+If building fails:
+- Update to Version 2.03 or later
+- Check for duplicate file/directory entries
+- Verify directory structure in XML
+
+## Command Line Issues
+
+### Interactive Commands Not Supported
+
+<Warning>
+  Git commands with `-i` flag (interactive mode) are not supported.
+</Warning>
+
+Avoid:
+- `git rebase -i`
+- `git add -i`
+- Any command requiring interactive input
+
+These will fail or hang in automated environments.
+
+### Path Arguments Parsing
+
+Version 2.10 fixed an issue where path arguments could parse another argument instead of a path.
+
+**Solution:**
+- Use quotes around paths with spaces
+- Update to Version 2.10 or later
+
+## Output Issues
+
+### Missing Build Messages
+
+Version 2.01 added `fflush()` calls to ensure build messages output at all times.
+
+If messages aren't appearing:
+- Update to Version 2.01 or later
+- Check that output isn't being redirected incorrectly
+
+### Invalid Sectors Without License File
+
+Version 2.01 fixed generation of invalid sectors when no license file is specified.
+
+**Solution:**
+- Use Version 2.01 or later, or
+- Always specify a valid license file
+
+## Debugging Tips
+
+<Accordion title="Enable verbose output">
+  Use standard output to see detailed build information:
+  
+  ```bash
+  mkpsxiso project.xml
+  ```
+  
+  Suppress warnings (Version 2.20+):
+  
+  ```bash
+  mkpsxiso --warns project.xml
+  ```
+  
+  Quiet mode for dumpsxiso (Version 2.20+):
+  
+  ```bash
+  dumpsxiso --quiet image.bin
+  ```
+</Accordion>
+
+<Accordion title="Generate LBA listings">
+  Use LBA output to verify file placement:
+  
+  ```bash
+  # Generate LBA log in text format
+  mkpsxiso -lba project.xml
+  
+  # Generate LBA log in C header format
+  mkpsxiso -lbahead project.xml
+  ```
+  
+  Version 2.20+ improvements:
+  - Better formatted output
+  - Sorted by LBA instead of name
+  - Includes unreferenced tracks
+</Accordion>
+
+<Accordion title="Test without building ISO">
+  Generate only LBA listings without creating the ISO:
+  
+  ```bash
+  mkpsxiso -noisogen -lba project.xml
+  ```
+  
+  Useful for:
+  - Verifying file layout
+  - Checking LBA addresses
+  - Debugging XML structure
+</Accordion>
+
+<Accordion title="Validate dumps">
+  Compare original and rebuilt images:
+  
+  ```bash
+  # Dump original
+  dumpsxiso original.bin -x original_dump
+  
+  # Build from XML
+  mkpsxiso original_dump/original.xml -o rebuilt.bin
+  
+  # Compare
+  diff original.bin rebuilt.bin
+  ```
+</Accordion>
+
+## Getting Help
+
+If you encounter an issue not listed here:
+
+1. Check the [official documentation](https://github.com/Lameguy64/mkpsxiso/wiki/MKPSXISO-Documentation)
+2. Review recent [changelog](/reference/changelog) for fixes
+3. Search existing GitHub issues
+4. Open a new issue with:
+   - mkpsxiso version
+   - Operating system and filesystem type
+   - Complete error message
+   - Minimal XML example reproducing the issue

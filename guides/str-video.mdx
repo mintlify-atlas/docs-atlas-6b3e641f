@@ -1,0 +1,428 @@
+---
+title: Working with STR Video
+description: Add full-motion video with STR/MDEC format to PlayStation ISOs for cutscenes and cinematics
+---
+
+STR (Stream) files contain MDEC-compressed video with interleaved XA audio, providing full-motion video capabilities for PlayStation games.
+
+## What is STR Video?
+
+STR files are mixed-mode video streams that:
+
+- Contain MDEC-compressed video frames
+- Interleave XA audio for synchronized sound
+- Use alternating Mode 2 Form 1 (video) and Form 2 (audio) sectors
+- Stream directly from CD during playback
+- Support various resolutions and frame rates
+
+## STR File Structure
+
+STR files contain interleaved sectors:
+
+- **Mode 2 Form 1 sectors**: MDEC video data + error correction
+- **Mode 2 Form 2 sectors**: XA ADPCM audio data
+- **Subheaders**: Define each sector's type and parameters
+
+The PlayStation's hardware demultiplexes the stream, sending video to MDEC decoder and audio to the SPU.
+
+## Adding STR Video to Your ISO
+
+<Steps>
+
+<Step title="Prepare STR Video Files">
+
+Ensure your STR files are properly formatted:
+
+- Files must be in raw 2336-byte sector format
+- Must contain valid MDEC video frames
+- Must have proper sector subheaders
+- Audio and video must be correctly interleaved
+
+Use PlayStation SDK tools or community converters to create STR files.
+
+<Warning>
+mkpsxiso validates sector subheaders and will report errors for improperly ripped or encoded STR files. Always verify your source files.
+</Warning>
+
+</Step>
+
+<Step title="Add STR Files to XML">
+
+Define STR files with `type="mixed"` in your directory tree:
+
+```xml
+<directory_tree>
+  <dir name="movies">
+    <file name="intro.str" type="mixed" source="video/intro.str"/>
+    <file name="ending.str" type="mixed" source="video/ending.str"/>
+    <file name="cutscene1.str" type="mixed" source="video/scene1.str"/>
+  </dir>
+</directory_tree>
+```
+
+<Note>
+You can use `type="str"` as an alias for `type="mixed"`. All three types (`mixed`, `str`, `xa`) are functionally identical and just tell mkpsxiso to handle the file as mixed-mode.
+</Note>
+
+</Step>
+
+<Step title="Optimize File Placement">
+
+Place STR files strategically for optimal playback:
+
+```xml
+<directory_tree>
+  <!-- System files -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Intro movie near start of disc -->
+  <file name="intro.str" type="str" source="video/intro.str"/>
+  
+  <!-- Level data -->
+  <dir name="levels">
+    <file name="level1.dat" source="levels/level1.dat"/>
+    
+    <!-- Cutscene after level data -->
+    <file name="scene1.str" type="str" source="video/level1_scene.str"/>
+    
+    <file name="level2.dat" source="levels/level2.dat"/>
+    <file name="scene2.str" type="str" source="video/level2_scene.str"/>
+  </dir>
+</directory_tree>
+```
+
+<Tip>
+Place STR files immediately after the game content that triggers them. This minimizes seek time when transitioning from gameplay to cutscene.
+</Tip>
+
+</Step>
+
+<Step title="Build and Test">
+
+Build your ISO and verify video playback:
+
+```bash
+mkpsxiso myproject.xml
+```
+
+Test to ensure:
+- Video plays smoothly without stuttering
+- Audio stays synchronized with video
+- No visual artifacts or corruption
+- Proper frame rate maintenance
+
+</Step>
+
+</Steps>
+
+## STR Sector Details
+
+### Mixed Mode Encoding
+
+mkpsxiso automatically handles mixed-mode encoding:
+
+1. Reads each sector's subheader
+2. Detects Form 1 (video) vs Form 2 (audio)
+3. Applies appropriate encoding:
+   - **Form 1**: Adds error detection (EDC) and error correction (ECC)
+   - **Form 2**: Adds only EDC, no ECC
+
+### Subheader Information
+
+Each sector's subheader contains:
+
+- **File Number**: Stream identifier
+- **Channel Number**: For multi-stream files
+- **Submode Byte**: Form 1 or Form 2 flag
+- **Coding Info**: Audio parameters (for audio sectors)
+
+### Data Sector Detection
+
+mkpsxiso uses improved logic to identify:
+
+- Mode 2 Form 1 sectors (video data)
+- Mode 2 Form 2 sectors (audio data)
+- Proper interleaving patterns
+
+This prevents STR/XA files from being incorrectly extracted as DATA format.
+
+## Creating STR Files
+
+### From Video Sources
+
+Convert standard video formats to STR:
+
+```bash
+# Example using jPSXdec (community tool)
+jpsxdec -f video.str -it movie.avi
+```
+
+### From PlayStation SDK
+
+Use official SDK tools:
+
+```bash
+# Example conversion (requires PsyQ SDK)
+movconv input.avi output.str
+```
+
+### Extracting from Games
+
+Extract STR files from existing games:
+
+```bash
+dumpsxiso -x game.bin
+```
+
+Extracted STR files can serve as:
+- Format references
+- Templates for your own videos
+- Test cases for playback code
+
+## Common STR Patterns
+
+### Opening Cinematic
+
+```xml
+<!-- Place intro video early for quick access -->
+<directory_tree>
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  <file name="intro.str" type="str" source="movies/opening.str"/>
+  <!-- Rest of game data -->
+</directory_tree>
+```
+
+### Level Transitions
+
+```xml
+<dir name="levels">
+  <!-- Level 1 -->
+  <file name="level1.dat" source="levels/1.dat"/>
+  <file name="l1_end.str" type="str" source="movies/level1_complete.str"/>
+  
+  <!-- Level 2 -->
+  <file name="level2.dat" source="levels/2.dat"/>
+  <file name="l2_end.str" type="str" source="movies/level2_complete.str"/>
+</dir>
+```
+
+### Multiple Endings
+
+```xml
+<dir name="endings">
+  <file name="good.str" type="str" source="movies/good_ending.str"/>
+  <file name="bad.str" type="str" source="movies/bad_ending.str"/>
+  <file name="true.str" type="str" source="movies/true_ending.str"/>
+</dir>
+```
+
+## Audio in STR Files
+
+### Synchronized Audio
+
+STR audio is interleaved with video:
+
+```
+Sector 1: Video frame 1
+Sector 2: Audio chunk 1
+Sector 3: Video frame 2
+Sector 4: Audio chunk 2
+...
+```
+
+This ensures audio-video synchronization during streaming.
+
+### Audio Parameters
+
+XA audio in STR files typically uses:
+
+- **Sample Rate**: 37800 Hz
+- **Channels**: Stereo
+- **Compression**: ADPCM Level C
+- **Bits**: 4-bit ADPCM
+
+### Silent Video
+
+STR files can contain video-only (no audio):
+
+- Only Mode 2 Form 1 sectors
+- No audio sectors interleaved
+- Simpler structure, slightly higher video data rate
+
+## Video Parameters
+
+### Resolution
+
+Common PlayStation STR resolutions:
+
+- **320x240**: Standard quality, lower data rate
+- **320x224**: NTSC-friendly resolution
+- **384x240**: Higher quality, more data
+- **640x240**: High quality, requires careful optimization
+
+### Frame Rate
+
+Typical frame rates:
+
+- **15 fps**: Standard for PlayStation FMV
+- **20 fps**: Smoother motion
+- **30 fps**: High quality, requires more disc space
+
+<Tip>
+15 fps is the most common frame rate for PlayStation STR videos. It provides acceptable quality while keeping file sizes manageable for CD streaming.
+</Tip>
+
+### Color Depth
+
+MDEC video uses:
+
+- **15-bit color** (5-5-5 RGB)
+- **24-bit color** (8-8-8 RGB) with quantization
+
+Higher color depth increases file size proportionally.
+
+## EDC and ECC Handling
+
+### Form 1 Sectors (Video)
+
+Video sectors receive full error protection:
+
+- **EDC**: Error Detection Code
+- **ECC**: Error Correction Code
+
+This ensures video data integrity during playback.
+
+### Form 2 Sectors (Audio)
+
+Audio sectors receive only EDC:
+
+```xml
+<track type="data" xa_edc="true">
+  <!-- Form 2 sectors include EDC -->
+</track>
+```
+
+Or without EDC:
+
+```xml
+<track type="data" xa_edc="false">
+  <!-- Form 2 sectors without EDC -->
+</track>
+```
+
+<Note>
+The `xa_edc` attribute controls EDC generation for all Form 2 sectors, including those in STR files.
+</Note>
+
+## Troubleshooting
+
+### Video Playback Issues
+
+If video doesn't play correctly:
+
+- **Verify sector format**: Ensure file is in 2336-byte sector format
+- **Check subheaders**: Validate Form 1/Form 2 flags are correct
+- **Test source file**: Try playing in jPSXdec or other STR player
+- **Examine interleaving**: Confirm audio/video sectors alternate properly
+
+### Audio Desynchronization
+
+If audio drifts out of sync:
+
+- Check frame rate matches expected value
+- Verify audio sample rate is correct
+- Ensure no sectors are missing or corrupted
+- Test on actual hardware (emulators may behave differently)
+
+### Stuttering or Dropped Frames
+
+If playback stutters:
+
+- **Optimize file placement**: Move STR closer to related content
+- **Reduce data rate**: Use lower resolution or frame rate
+- **Check disc layout**: Ensure no excessive seeking required
+- **Test on hardware**: CD drive speed affects streaming performance
+
+### Incorrect Sector Detection
+
+If mkpsxiso reports sector errors:
+
+- Files may have been incorrectly extracted
+- Sector headers might be malformed
+- File might not be genuine STR format
+
+<Warning>
+mkpsxiso performs strict validation of STR sector formats. Files must have valid Mode 2 Form 1/Form 2 sector structures.
+</Warning>
+
+## Performance Optimization
+
+### Bitrate Considerations
+
+PlayStation CD streaming limits:
+
+- **Maximum**: ~300 KB/s (2x speed)
+- **Safe rate**: ~150 KB/s (1x speed)
+- **Conservative**: ~100 KB/s (with seek overhead)
+
+Keep total data rate below these limits for reliable playback.
+
+### File Size Management
+
+```
+Resolution  Frame Rate  Duration  Approximate Size
+320x240     15 fps      60s       15-20 MB
+320x240     15 fps      120s      30-40 MB
+384x240     15 fps      60s       20-25 MB
+320x240     30 fps      60s       30-40 MB
+```
+
+Balance quality and disc space based on your game's needs.
+
+### Strategic Placement
+
+<Tip>
+**Optimal STR Placement:**
+1. Intro video near disc start (LBA 24-100)
+2. In-game cutscenes after related level data
+3. Ending sequences at disc end
+4. Group multiple cutscenes if played sequentially
+</Tip>
+
+## Best Practices
+
+### Quality Guidelines
+
+- Use 320x240 at 15 fps for standard cutscenes
+- Reserve higher quality for important cinematics
+- Test on real hardware to verify streaming performance
+- Include audio sync markers for long videos
+
+### File Organization
+
+```xml
+<!-- Good organization -->
+<dir name="fmv">
+  <file name="intro.str" type="str" source="fmv/intro.str"/>
+  <file name="scene01.str" type="str" source="fmv/scene01.str"/>
+  <file name="scene02.str" type="str" source="fmv/scene02.str"/>
+  <file name="ending.str" type="str" source="fmv/ending.str"/>
+</dir>
+```
+
+### Compression Balance
+
+Find the right balance:
+
+- **Too much compression**: Visual artifacts, blocky video
+- **Too little compression**: Files too large, streaming issues
+- **Optimal**: Just enough compression to maintain quality at target bitrate
+
+## Next Steps
+
+- Combine STR video with [XA Audio](/guides/xa-audio) for rich multimedia
+- Add [CDDA Audio](/guides/cdda-audio) tracks for opening themes
+- Optimize all media with [LBA placement](/guides/lba-optimization)
+- Learn about [Building ISOs](/guides/building-iso) for complete projects

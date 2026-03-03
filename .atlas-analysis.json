@@ -1,0 +1,92 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "mkpsxiso",
+  "projectDescription": "ISO disc image maker and dumping tool for PlayStation homebrew development",
+  "theme": "aspen",
+  "primaryColor": "#0066CC",
+  "lightColor": "#4D94FF",
+  "darkColor": "#003D7A",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Commands",
+        "pages": [
+          "commands/mkpsxiso",
+          "commands/dumpsxiso"
+        ]
+      },
+      {
+        "group": "XML Configuration",
+        "pages": [
+          "xml/overview",
+          "xml/iso-project",
+          "xml/tracks",
+          "xml/identifiers",
+          "xml/directory-tree",
+          "xml/file-elements",
+          "xml/audio-tracks"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/building-iso",
+          "guides/dumping-iso",
+          "guides/xa-audio",
+          "guides/str-video",
+          "guides/cdda-audio",
+          "guides/license-data",
+          "guides/lba-optimization"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/file-types",
+          "reference/iso9660",
+          "reference/troubleshooting",
+          "reference/changelog"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "XML-based ISO project scripting",
+    "Direct ISO and bin+cue output formats",
+    "License data injection for PSX compatibility",
+    "Mixed-mode CD-XA stream file support (XA audio, STR video)",
+    "CDDA audio track support from wav, flac, pcm, mp3",
+    "Precise LBA file positioning for access optimization",
+    "1:1 ISO rebuilding capability",
+    "File and directory extraction with XML generation"
+  ],
+  "publicApiSurface": [
+    "mkpsxiso - Build PlayStation ISO images from XML",
+    "dumpsxiso - Extract and dump PlayStation ISO images",
+    "mkpsxiso -h/--help - Show help text",
+    "mkpsxiso -q/--quiet - Quiet mode",
+    "mkpsxiso -l/--label - Specify volume ID",
+    "mkpsxiso -o/--output - Specify output file",
+    "mkpsxiso -c/--cuefile - Specify cue sheet file",
+    "mkpsxiso -L/--license - Specify license file",
+    "mkpsxiso -lba - Generate LBA location log",
+    "mkpsxiso -lbahead - Generate C header with LBA locations",
+    "mkpsxiso -noisogen - Calculate LBA without generating ISO",
+    "mkpsxiso -noxa - Disable CD-XA attributes",
+    "dumpsxiso -x/--extract - Extract files from ISO",
+    "dumpsxiso -s/--xml - Specify output XML file",
+    "dumpsxiso -e/--encoding - Specify audio encoding format",
+    "dumpsxiso -pt/--path-table - Extract from path table",
+    "dumpsxiso --force - Dump obfuscated ISOs",
+    "dumpsxiso --noxml - Suppress XML generation",
+    "dumpsxiso --raw - Dump files in raw format"
+  ]
+}

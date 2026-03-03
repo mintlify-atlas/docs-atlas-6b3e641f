@@ -1,0 +1,362 @@
+---
+title: Dumping PlayStation ISO Images
+description: Extract and document PlayStation CD images using dumpsxiso to create rebuild-compatible XML files
+---
+
+dumpsxiso extracts PlayStation CD images to files and generates mkpsxiso-compatible XML documentation that preserves the exact disc structure.
+
+## What is dumpsxiso?
+
+dumpsxiso is the companion tool to mkpsxiso that:
+
+- Extracts all files from PlayStation ISO images
+- Generates XML documentation of the disc structure
+- Preserves timestamps, XA attributes, and file ordering
+- Extracts license data for reuse
+- Supports CDDA audio track extraction in multiple formats
+- Can rebuild images 1:1 with the original
+
+## Basic Dumping Workflow
+
+<Steps>
+
+<Step title="Prepare Your ISO">
+
+Ensure you have a PlayStation ISO image in `.bin` format. dumpsxiso works with:
+
+- Standard `.bin/.cue` disc images
+- `.iso` files
+- Both single-track and multi-track images
+
+</Step>
+
+<Step title="Extract the ISO">
+
+Run dumpsxiso with the extraction flag:
+
+```bash
+dumpsxiso -x myimage.bin
+```
+
+This command:
+- Creates a folder named `myimage` with all extracted files
+- Generates `myimage.xml` documenting the structure
+- Extracts `licensea.dat` if present
+- Preserves directory hierarchy and timestamps
+
+<Note>
+If no output directory is specified, files are extracted into a folder with the same name as the input file.
+</Note>
+
+</Step>
+
+<Step title="Specify Output Location">
+
+Extract to a custom directory:
+
+```bash
+dumpsxiso -x myimage.bin -d /path/to/output
+```
+
+This extracts files to the specified directory instead of the default location.
+
+</Step>
+
+<Step title="Review Generated XML">
+
+Open the generated `.xml` file to see the complete disc structure:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<iso_project image_name="myimage.bin" cue_sheet="myimage.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAMEDISC"
+      <!-- ... -->
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <!-- Complete file listing with LBA order preserved -->
+    </directory_tree>
+  </track>
+</iso_project>
+```
+
+This XML can be used directly with mkpsxiso to rebuild the image.
+
+</Step>
+
+<Step title="Verify Extraction">
+
+Check the console output for:
+
+- Number of files extracted
+- Directory structure created
+- Any warnings about unusual disc structures
+- CDDA track information (if present)
+
+</Step>
+
+</Steps>
+
+## Extraction Options
+
+### Generate XML Without Extracting Files
+
+Create documentation only, without extracting files:
+
+```bash
+dumpsxiso myimage.bin
+```
+
+This generates `myimage.xml` but doesn't extract any files.
+
+### Custom XML Output Name
+
+Specify the XML output filename:
+
+```bash
+dumpsxiso myimage.bin -s custom_structure.xml
+```
+
+### Prevent XML Generation
+
+Extract files without creating XML or license files:
+
+```bash
+dumpsxiso -x myimage.bin --noxml
+```
+
+### Extract in Raw Format
+
+Dump all files in raw 2352-byte sector format:
+
+```bash
+dumpsxiso -x myimage.bin --raw
+```
+
+<Warning>
+Raw format extraction includes sector headers and error correction data. This is useful for low-level analysis but not for normal file access.
+</Warning>
+
+### Quiet Mode
+
+Suppress all output except warnings and errors:
+
+```bash
+dumpsxiso -x myimage.bin --quiet
+```
+
+## CDDA Audio Extraction
+
+### Extract Audio Tracks as WAV
+
+Extract CD audio tracks to WAV format:
+
+```bash
+dumpsxiso -x myimage.bin -da wav
+```
+
+### Extract Audio Tracks as FLAC
+
+Extract with lossless FLAC compression:
+
+```bash
+dumpsxiso -x myimage.bin -da flac
+```
+
+<Tip>
+FLAC format preserves audio quality while reducing file size by approximately 50%. This is ideal for archival purposes.
+</Tip>
+
+### Extract Audio Tracks as PCM
+
+Extract as raw PCM data:
+
+```bash
+dumpsxiso -x myimage.bin -da pcm
+```
+
+## Advanced Features
+
+### Path Table Dumping
+
+Extract files using the path table instead of directory records:
+
+```bash
+dumpsxiso -x myimage.bin --path-table
+```
+
+This is useful for:
+- Discs with obfuscated file systems
+- Images with corrupted directory records
+- Games that hide files from normal directory browsing
+
+<Note>
+Some games intentionally obfuscate their directory structures. The path table dump can recover files that aren't visible through standard directory traversal.
+</Note>
+
+### Force Extraction for Obfuscated Images
+
+Handle heavily obfuscated games (Chrono Cross, Xenogears, etc.):
+
+```bash
+dumpsxiso -x myimage.bin --force
+```
+
+This enables aggressive extraction that works around non-standard disc structures.
+
+### XML Formatting Options
+
+#### Directory-Sorted XML
+
+Generate XML sorted by directory for easier reading:
+
+```bash
+dumpsxiso myimage.bin -s output.xml --sort
+```
+
+Instead of strict LBA order, files are grouped by directory.
+
+#### Strict LBA Order
+
+Default behavior preserves exact LBA ordering:
+
+```bash
+dumpsxiso myimage.bin
+```
+
+This ensures 1:1 rebuild capability.
+
+## Rebuilding from Extracted Files
+
+Once you've extracted an ISO:
+
+<Steps>
+
+<Step title="Verify Extraction">
+
+Check that all files and the XML were created successfully.
+
+</Step>
+
+<Step title="Rebuild the ISO">
+
+Use mkpsxiso with the generated XML:
+
+```bash
+mkpsxiso myimage.xml
+```
+
+</Step>
+
+<Step title="Compare Original and Rebuild">
+
+For most images, the rebuild will be identical to the original:
+
+```bash
+cmp original.bin rebuilt.bin
+```
+
+If they match, you've achieved a 1:1 rebuild.
+
+</Step>
+
+</Steps>
+
+<Note>
+Almost all PlayStation images can now be rebuilt 1:1. The generated XML preserves timestamps, XA attributes, directory record order, and all other disc metadata.
+</Note>
+
+## Extracted File Structure
+
+After extraction, you'll find:
+
+```
+myimage/
+├── myimage.xml          # mkpsxiso project file
+├── licensea.dat         # License data (if present)
+├── system.cnf           # Boot configuration
+├── myexec.exe           # Main executable
+├── data/                # Game data directories
+│   ├── stage1.dat
+│   └── stage2.dat
+└── audio/               # Audio files
+    ├── music.xa
+    └── voices.xa
+```
+
+## Special File Types
+
+### Mixed-Mode Files
+
+dumpsxiso automatically detects and properly extracts:
+
+- **XA Audio Files**: CD-XA ADPCM compressed audio
+- **STR Video Files**: MDEC video with interleaved audio
+- **Mixed Form Files**: Files with both Mode 2 Form 1 and Form 2 sectors
+
+These files are extracted with their 2336-byte sector data and marked as `type="mixed"` in the XML.
+
+### DA Files
+
+DA (Direct Audio) files are links to CDDA audio tracks:
+
+```xml
+<file name="track02.da" trackid="02" type="da"/>
+```
+
+These reference specific audio tracks rather than containing audio data themselves.
+
+## Known Issues and Workarounds
+
+### Filesystem Timestamp Limitations
+
+On `ext4` and `xfs` filesystems, timestamps before 1901/12/13 cannot be preserved. Games like Crash Bash, Spyro 3, and Vagrant Story use older dates.
+
+<Tip>
+Work on filesystems with better date support: `f2fs`, `ntfs`, or `btrfs` for perfect timestamp preservation.
+</Tip>
+
+### Corrupted Directory Records
+
+If dumpsxiso crashes on corrupted images, try:
+
+```bash
+dumpsxiso -x myimage.bin --force --path-table
+```
+
+### Little-Endian Attribute Detection
+
+dumpsxiso includes detection for problematic ISOs with attributes in little-endian format (non-standard).
+
+## Validation and Analysis
+
+### ISO Descriptor Check
+
+dumpsxiso automatically validates:
+
+- ISO 9660 descriptor structure
+- PlayStation-specific identifiers
+- Volume size and sector counts
+- Path table integrity
+
+### Subheader and RIFF Validation
+
+For XA and STR files, dumpsxiso checks:
+
+- RIFF headers for proper encoding
+- XA subheader format
+- Sector submode values
+- EDC/ECC integrity
+
+## Next Steps
+
+After extracting an ISO:
+
+- Modify the XML to add custom files
+- Replace game assets with modifications
+- Study the disc structure for ROM hacking
+- Create reproducible builds with [Building ISOs](/guides/building-iso)

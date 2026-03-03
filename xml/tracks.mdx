@@ -1,0 +1,164 @@
+---
+title: Track Elements
+description: Configure data and audio tracks in mkpsxiso XML projects
+---
+
+The `<track>` element defines tracks in the CD image. PlayStation ISOs support one data track (which must be first) followed by optional CD-DA audio tracks.
+
+## Data Track
+
+The data track contains the file system and must be specified as the first track.
+
+```xml
+<track type="data" xa_edc="true" new_type="false">
+  <identifiers
+    system="PLAYSTATION"
+    application="PLAYSTATION"
+    volume="MYDISC"
+  />
+  <license file="licensea.dat"/>
+  <directory_tree>
+    <!-- Files and directories -->
+  </directory_tree>
+</track>
+```
+
+### Data Track Attributes
+
+<ParamField path="type" type="string" required>
+  Must be set to `data` for the data track
+</ParamField>
+
+<ParamField path="xa_edc" type="boolean" default="true">
+  Specifies whether the image has EDC (Error Detection Code) in Form 2 sectors. Set to `false` only for compatibility with very old mastering tools
+</ParamField>
+
+<ParamField path="new_type" type="boolean" default="false">
+  Specifies if the image was created with the old (pre-2003) Sony mastering tool. Set to `true` for modern PlayStation 2 compatible images
+</ParamField>
+
+<ParamField path="ps2" type="boolean" default="false">
+  Marks the image as a PlayStation 2 disc. Automatically sets `new_type` to `true`
+</ParamField>
+
+### Data Track Child Elements
+
+A data track should contain:
+
+- `<identifiers>` - Optional, defines disc identifiers (see [Identifiers](/xml/identifiers))
+- `<license>` - Optional, specifies license file
+- `<directory_tree>` - Required, defines the file system (see [Directory Tree](/xml/directory-tree))
+
+## Audio Tracks
+
+Audio tracks define CD-DA (Red Book audio) tracks that can be played on standard CD players.
+
+```xml
+<track type="audio" source="track02.wav"/>
+<track type="audio" source="track03.wav">
+  <pregap duration="00:04:00"/>
+</track>
+```
+
+### Audio Track Attributes
+
+<ParamField path="type" type="string" required>
+  Must be set to `audio` for audio tracks
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  Path to the audio file. Supported formats:
+  - WAV (recommended: 44100Hz, 16-bit, stereo)
+  - FLAC
+  - MP3 (will be converted to Red Book format)
+  - PCM (raw format)
+</ParamField>
+
+<ParamField path="trackid" type="string">
+  Optional identifier for this track, used to reference it from DA files in the data track (see [Audio Tracks](/xml/audio-tracks))
+</ParamField>
+
+### Audio Track Child Elements
+
+#### pregap
+
+Defines a pregap (pause) before the track starts. The default pregap is 2 seconds (150 sectors).
+
+```xml
+<pregap duration="00:04:00"/>
+```
+
+<ParamField path="duration" type="string" required>
+  Pregap duration in `MM:SS:FF` format (minutes, seconds, frames where 1 frame = 1/75 second). The pregap is filled with silence
+</ParamField>
+
+## Track Order Requirements
+
+<Warning>
+  **Important track ordering rules:**
+  - Only one data track is permitted
+  - The data track must be the first track
+  - Audio tracks can only appear after the data track
+  - You cannot specify a data track after an audio track
+</Warning>
+
+## Audio Format Requirements
+
+For lossless CD-DA audio, your source files should be in Red Book format:
+
+- Sample rate: 44100 Hz
+- Bit depth: 16-bit
+- Channels: Stereo (2 channels)
+
+If your source file is in a different format, mkpsxiso will automatically convert it, but this may introduce quality loss for lossy formats like MP3.
+
+## Example: Multi-Track Disc
+
+```xml
+<iso_project image_name="musicgame.bin" cue_sheet="musicgame.cue">
+  <!-- Data track with game files -->
+  <track type="data" xa_edc="true">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="MUSICGAME"
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <file name="system.cnf" source="system.txt"/>
+      <file name="game.exe" source="game.exe"/>
+      
+      <!-- Reference to audio track 2 -->
+      <file name="bgm01.da" trackid="02" type="da"/>
+    </directory_tree>
+  </track>
+  
+  <!-- Audio track 2 - referenced by DA file -->
+  <track type="audio" trackid="02" source="bgm01.wav"/>
+  
+  <!-- Audio track 3 - not referenced, can be played separately -->
+  <track type="audio" source="bonus_track.wav">
+    <pregap duration="00:03:00"/>
+  </track>
+</iso_project>
+```
+
+## CUE Sheet Requirement
+
+<Info>
+  When using audio tracks, the `cue_sheet` attribute must be specified in the `<iso_project>` element. mkpsxiso will automatically generate a proper CUE sheet file for the multi-track image.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Identifiers" icon="tag" href="/xml/identifiers">
+    Configure disc identifiers for the data track
+  </Card>
+  <Card title="Directory Tree" icon="folder-tree" href="/xml/directory-tree">
+    Build the file system structure
+  </Card>
+  <Card title="Audio Tracks" icon="music" href="/xml/audio-tracks">
+    Link audio tracks to DA files
+  </Card>
+</CardGroup>

@@ -1,0 +1,297 @@
+---
+title: mkpsxiso
+description: Build PlayStation ISO images from XML project files
+---
+
+mkpsxiso is the primary tool for building PlayStation ISO images. It reads an XML project file describing the disc structure and generates a binary ISO image along with an optional CUE sheet.
+
+## Usage
+
+```bash
+mkpsxiso [options] <xmlfile>
+```
+
+### Arguments
+
+<ParamField path="xmlfile" type="string" required>
+  File name of disc image project in XML document format. This file defines the directory structure, files to include, and disc metadata.
+</ParamField>
+
+## Options
+
+<ParamField path="-h" type="flag">
+  Shows help text and exits.
+  
+  **Alias:** `--help`
+</ParamField>
+
+<ParamField path="-q" type="flag">
+  Quiet mode. Suppresses all output except warnings and errors.
+  
+  **Alias:** `--quiet`
+</ParamField>
+
+<ParamField path="-w" type="flag">
+  Suppress all warnings. Can be used along with `-q` to show only errors.
+  
+  **Alias:** `--warns`
+</ParamField>
+
+<ParamField path="-l" type="string">
+  Specify volume ID, overriding the `<volume>` element in the XML file.
+  
+  **Alias:** `--label`
+  
+  ```bash
+  mkpsxiso -l "MYGAME_V1" project.xml
+  ```
+</ParamField>
+
+<ParamField path="-o" type="string">
+  Specify output file, overriding the `image_name` attribute in the XML.
+  
+  **Alias:** `--output`
+  
+  ```bash
+  mkpsxiso -o "game.bin" project.xml
+  ```
+</ParamField>
+
+<ParamField path="-c" type="string">
+  Specify cue sheet file, overriding the `cue_sheet` attribute in the XML.
+  
+  **Alias:** `--cuefile`
+  
+  ```bash
+  mkpsxiso -c "game.cue" project.xml
+  ```
+</ParamField>
+
+<ParamField path="-L" type="string">
+  Specify license file, overriding the `file` attribute in the `<license>` element.
+  
+  **Alias:** `--license`
+  
+  ```bash
+  mkpsxiso -L "licensea.dat" project.xml
+  ```
+</ParamField>
+
+<ParamField path="-y" type="flag">
+  Always overwrite ISO image files without prompting.
+  
+  ```bash
+  mkpsxiso -y project.xml
+  ```
+</ParamField>
+
+<ParamField path="-lba" type="string">
+  Generate a log of file LBA (Logical Block Address) locations in the disc image.
+  
+  If you provide an XML file path, the output will use the stem name with `_LBA.txt` appended.
+  
+  ```bash
+  # Generates project_LBA.txt
+  mkpsxiso -lba project.xml project.xml
+  
+  # Generates custom_lba.txt
+  mkpsxiso -lba custom_lba.txt project.xml
+  ```
+</ParamField>
+
+<ParamField path="-lbahead" type="string">
+  Generate a C header file of file LBA locations in the disc image.
+  
+  If you provide an XML file path, the output will use the stem name with `_LBA.h` appended.
+  
+  ```bash
+  # Generates project_LBA.h
+  mkpsxiso -lbahead project.xml project.xml
+  
+  # Generates lba_offsets.h
+  mkpsxiso -lbahead lba_offsets.h project.xml
+  ```
+</ParamField>
+
+<ParamField path="-rebuildxml" type="string">
+  Rebuild the XML using the newest schema format and save it to the specified file.
+  
+  ```bash
+  mkpsxiso -rebuildxml updated_project.xml project.xml
+  ```
+</ParamField>
+
+<ParamField path="-noisogen" type="flag">
+  Do not generate the ISO image, but calculate file LBA locations. Useful with `-lba` or `-lbahead` for pre-calculating file offsets.
+  
+  ```bash
+  mkpsxiso -noisogen -lba offsets.txt project.xml
+  ```
+</ParamField>
+
+<ParamField path="-noxa" type="flag">
+  Do not generate CD-XA extended file attributes (creates plain ISO9660 format).
+  
+  <Warning>
+    XA data can still be included but this is not recommended.
+  </Warning>
+  
+  ```bash
+  mkpsxiso -noxa project.xml
+  ```
+</ParamField>
+
+## Examples
+
+### Basic ISO Build
+
+Build an ISO from an XML project file:
+
+```bash
+mkpsxiso game.xml
+```
+
+### Build with Custom Output
+
+Build with custom output file and CUE sheet names:
+
+```bash
+mkpsxiso -o mygame.bin -c mygame.cue game.xml
+```
+
+### Generate LBA Offsets
+
+Generate a C header file with file LBA locations for use in game code:
+
+```bash
+mkpsxiso -lbahead file_offsets.h game.xml
+```
+
+### Multi-Disc Project
+
+Process multiple disc projects (each `<iso_project>` element in the XML will be built):
+
+```bash
+mkpsxiso multi_disc.xml
+```
+
+<Note>
+  When using multiple `<iso_project>` elements, you cannot use `-o`, `-c`, or `-L` command-line overrides.
+</Note>
+
+### Silent Build with Overwrite
+
+Build silently and overwrite existing files:
+
+```bash
+mkpsxiso -q -y game.xml
+```
+
+### Calculate Offsets Only
+
+Calculate file LBA locations without generating the ISO:
+
+```bash
+mkpsxiso -noisogen -lba game_lba.txt -lbahead game_lba.h game.xml
+```
+
+## Output Files
+
+### Binary Image (.bin)
+
+The main output is a raw 2352 bytes/sector CD-ROM image in MODE2/2352 format.
+
+### CUE Sheet (.cue)
+
+If specified, mkpsxiso generates a CUE sheet file that describes:
+- Track layout (data and audio tracks)
+- Track indices
+- Audio track pregap information
+
+### LBA Log (.txt)
+
+The LBA log file contains:
+- File system listing with LBA locations
+- File types, lengths, and source paths
+- Timecode representations of file positions
+
+### LBA Header (.h)
+
+The C header file contains preprocessor definitions for file LBA locations:
+
+```c
+#define FILE_SYSTEM_PSX \t0x00000016
+#define FILE_MYFILE_TXT \t0x00000018
+```
+
+## Build Process
+
+The build process follows these steps:
+
+1. Parse XML project file
+2. Validate directory tree and file references
+3. Calculate LBA positions for all files
+4. Sort directory entries (by name or LBA depending on disc type)
+5. Generate ISO file system structures
+6. Copy file data into disc image
+7. Write CDDA audio tracks (if present)
+8. Write license data to first 16 sectors
+9. Write directory records and path tables
+10. Write ISO9660 volume descriptors
+
+## Error Handling
+
+<Warning>
+  mkpsxiso performs several validation checks:
+  
+  - File names must be uppercase alphanumeric or underscores
+  - File names can have only one dot
+  - File names must be 1-31 characters (warning if over 12)
+  - Directory names must be 1-31 characters (warning if over 8)
+  - Directory hierarchy depth cannot exceed 8 levels
+  - File path length cannot exceed 255 characters
+</Warning>
+
+## Default Values
+
+<ParamField path="System ID" type="string" default="PLAYSTATION">
+  Used if not specified in XML identifiers
+</ParamField>
+
+<ParamField path="Application ID" type="string" default="PLAYSTATION">
+  Used if not specified in XML identifiers
+</ParamField>
+
+<ParamField path="Output file" type="string" default="{xmlfile}.bin">
+  Uses XML filename if `image_name` not specified
+</ParamField>
+
+<ParamField path="LBA file" type="string" default="{xmlfile}_LBA.txt">
+  When `-lba` is used without a filename
+</ParamField>
+
+<ParamField path="LBA header" type="string" default="{xmlfile}_LBA.h">
+  When `-lbahead` is used without a filename
+</ParamField>
+
+<ParamField path="XA EDC" type="boolean" default="true">
+  CD-XA Error Detection Code enabled by default
+</ParamField>
+
+<ParamField path="Pregap" type="integer" default="150">
+  Audio track pregap in sectors (2 seconds)
+</ParamField>
+
+## Tips
+
+<Tip>
+  Use `-lbahead` to generate a header file with file offsets. Include this header in your game code to load files by LBA instead of by path for faster loading times.
+</Tip>
+
+<Tip>
+  The `-rebuildxml` option is useful for migrating old XML projects to the latest format, especially for converting legacy DA audio file syntax.
+</Tip>
+
+<Tip>
+  For data-only discs without audio tracks, you can omit the CUE sheet attribute/option. The CUE sheet is only required when you have audio tracks.
+</Tip>

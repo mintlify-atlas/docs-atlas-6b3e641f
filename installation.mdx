@@ -1,0 +1,252 @@
+---
+title: Installation
+description: Install mkpsxiso from pre-built binaries or compile from source for Windows, Linux, and macOS
+---
+
+# Installation
+
+mkpsxiso can be installed either by downloading pre-built binaries or by compiling from source. Both methods are straightforward and well-supported across Windows, Linux, and macOS.
+
+## Pre-Built Binaries
+
+The easiest way to get started is to download pre-built binaries from the GitHub releases page.
+
+<Steps>
+  <Step title="Download Latest Release">
+    Visit the [mkpsxiso releases page](https://github.com/Lameguy64/mkpsxiso/releases/latest) and download the appropriate binary for your platform:
+    
+    - **Windows**: `mkpsxiso-windows.zip`
+    - **Linux**: `mkpsxiso-linux.tar.gz`
+    - **macOS**: `mkpsxiso-macos.tar.gz`
+    
+    <Note>
+    All binaries are built automatically by GitHub CI and include both `mkpsxiso` and `dumpsxiso` tools.
+    </Note>
+  </Step>
+  
+  <Step title="Extract the Archive">
+    Extract the downloaded archive to a directory of your choice.
+    
+    **Linux/macOS:**
+    ```bash
+    tar -xzf mkpsxiso-linux.tar.gz
+    cd mkpsxiso
+    ```
+    
+    **Windows:**
+    
+    Right-click the zip file and select "Extract All" or use your preferred extraction tool.
+  </Step>
+  
+  <Step title="Add to PATH (Optional)">
+    For easier access, add the mkpsxiso directory to your system PATH.
+    
+    **Linux/macOS:**
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    export PATH="$PATH:/path/to/mkpsxiso"
+    ```
+    
+    **Windows:**
+    
+    Add the directory to your system PATH through System Properties → Environment Variables.
+  </Step>
+  
+  <Step title="Verify Installation">
+    Test that mkpsxiso is working:
+    
+    ```bash
+    mkpsxiso --help
+    dumpsxiso --help
+    ```
+    
+    You should see the help text for both tools.
+  </Step>
+</Steps>
+
+<Warning>
+Ancient releases from the [gh-pages branch](https://github.com/Lameguy64/mkpsxiso/tree/gh-pages) are NOT RECOMMENDED. Always use the latest release from the releases page.
+</Warning>
+
+## Compiling from Source
+
+Compiling from source gives you access to the latest features and allows you to customize the build.
+
+### Prerequisites
+
+<Tabs>
+  <Tab title="Linux">
+    Install the required packages using your distribution's package manager:
+    
+    **Ubuntu/Debian:**
+    ```bash
+    sudo apt install git cmake build-essential
+    ```
+    
+    **Fedora/RHEL:**
+    ```bash
+    sudo dnf install git cmake gcc-c++
+    ```
+    
+    **Arch Linux:**
+    ```bash
+    sudo pacman -S git cmake base-devel
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    You'll need Git, CMake, and a compiler toolchain. Choose one of the following:
+    
+    **Option 1: MSVC Build Tools**
+    
+    1. Install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools)
+    2. Download CMake from [cmake.org](https://cmake.org/download) (do NOT use the one from Visual Studio installer)
+    3. Install [Git for Windows](https://git-scm.com/downloads/win)
+    
+    **Option 2: MSYS2**
+    
+    1. Install [MSYS2](https://www.msys2.org)
+    2. Open the "UCRT64" shell and install packages:
+    
+    ```bash
+    pacman -S mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake git
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    Install Xcode Command Line Tools and Homebrew:
+    
+    ```bash
+    xcode-select --install
+    brew install git cmake
+    ```
+  </Tab>
+</Tabs>
+
+### Build Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the repository with all submodules:
+    
+    ```bash
+    git clone --recurse-submodules https://github.com/Lameguy64/mkpsxiso.git
+    cd mkpsxiso
+    ```
+    
+    <Warning>
+    The `--recurse-submodules` flag is critical. If you download the repository as a .zip file instead of cloning, the submodule folders will be empty and the build will fail.
+    </Warning>
+  </Step>
+  
+  <Step title="Configure the Project">
+    Run CMake to configure the project for release build:
+    
+    ```bash
+    cmake --preset release
+    ```
+    
+    <Note>
+    **Optional:** To build without libFLAC support (libFLAC is required for encoding CDDA/DA audio as FLAC), add `-DMKPSXISO_NO_LIBFLAC=1` to the command:
+    
+    ```bash
+    cmake --preset release -DMKPSXISO_NO_LIBFLAC=1
+    ```
+    </Note>
+  </Step>
+  
+  <Step title="Build the Project">
+    Build mkpsxiso and dumpsxiso:
+    
+    ```bash
+    cmake --build --preset release
+    ```
+    
+    The compiled binaries will be placed in the `./build` directory.
+  </Step>
+  
+  <Step title="Install (Optional)">
+    Install the tools to your system:
+    
+    ```bash
+    cmake --install ./build
+    ```
+    
+    <Note>
+    Installation to default paths requires administrative privileges (sudo on Linux/macOS).
+    </Note>
+    
+    **Default installation paths:**
+    - **Windows**: `C:\Program Files (x86)\mkpsxiso`
+    - **Linux/macOS**: `/usr/local/bin`
+    
+    **Custom installation path:**
+    
+    To install to a custom directory, use `--prefix` with the configure command:
+    
+    ```bash
+    cmake --preset release --install-prefix /custom/path
+    cmake --build --preset release
+    cmake --install ./build
+    ```
+  </Step>
+  
+  <Step title="Verify the Build">
+    Test the compiled binaries:
+    
+    ```bash
+    ./build/mkpsxiso --help
+    ./build/dumpsxiso --help
+    ```
+  </Step>
+</Steps>
+
+## Build Configuration Options
+
+### libFLAC Support
+
+By default, mkpsxiso builds with libFLAC support for encoding and decoding FLAC audio. This is required if you want to:
+
+- Extract CDDA/DA audio tracks as FLAC files with dumpsxiso
+- Use FLAC files as CDDA track sources with mkpsxiso
+
+To disable libFLAC support:
+
+```bash
+cmake --preset release -DMKPSXISO_NO_LIBFLAC=1
+```
+
+<Tip>
+If you only plan to work with WAV files, you can disable libFLAC to reduce build dependencies.
+</Tip>
+
+## Troubleshooting
+
+### Submodules Not Found
+
+If you get errors about missing files during compilation:
+
+```bash
+# Initialize submodules if you forgot --recurse-submodules
+git submodule update --init --recursive
+```
+
+### CMake Version
+
+mkpsxiso requires a recent version of CMake. If you encounter CMake errors, ensure you have CMake 3.15 or later:
+
+```bash
+cmake --version
+```
+
+### Filesystem Timestamp Issues (Linux)
+
+On `ext4` and `xfs` filesystems, the minimum timestamp you can set is 1901/12/13. This makes some games with older timestamps impossible to rebuild 1:1.
+
+<Note>
+**Workaround:** Work on a filesystem with better date support, such as `f2fs`, `ntfs`, or `btrfs`.
+</Note>
+
+## Next Steps
+
+Now that you have mkpsxiso installed, proceed to the [Quick Start Guide](/quickstart) to build your first PlayStation ISO image.

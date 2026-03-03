@@ -1,0 +1,227 @@
+---
+title: Directory Tree
+description: Define the file system structure with directories, files, and dummy sectors
+---
+
+The `<directory_tree>` element contains the complete file system structure for the data track. It holds all files, directories, and dummy sectors that will be written to the ISO.
+
+## Basic Structure
+
+```xml
+<directory_tree>
+  <!-- Files in root directory -->
+  <file name="system.cnf" source="system.txt"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Subdirectories -->
+  <dir name="data">
+    <file name="level1.dat" source="data/level1.dat"/>
+  </dir>
+  
+  <!-- Dummy sectors at end -->
+  <dummy sectors="1024"/>
+</directory_tree>
+```
+
+## Child Elements
+
+The `<directory_tree>` element can contain:
+
+- `<file>` - Individual files (see [File Elements](/xml/file-elements))
+- `<dir>` - Subdirectories
+- `<dummy>` - Invisible dummy sectors
+
+## Directory Elements
+
+The `<dir>` element creates a subdirectory in the file system.
+
+```xml
+<dir name="mydir" srcdir="source/mydir">
+  <file name="file1.dat" source="file1.dat"/>
+  <file name="file2.dat" source="file2.dat"/>
+  
+  <!-- Nested directory -->
+  <dir name="subdir">
+    <file name="file3.dat" source="file3.dat"/>
+  </dir>
+</dir>
+```
+
+### Directory Attributes
+
+<ParamField path="name" type="string" required>
+  The name of the directory as it appears in the ISO. Must contain only uppercase alphanumeric characters and underscores. Maximum 8 characters recommended, 31 characters maximum
+</ParamField>
+
+<ParamField path="srcdir" type="string">
+  Optional base path for source files. If specified, file elements without a `source` attribute will look for files in this directory. Can be a relative or absolute path
+</ParamField>
+
+<ParamField path="hidden" type="number" default="0">
+  Visibility flag:
+  - `0`: Not hidden (default)
+  - `1`: Hidden
+  - `2`: Obfuscated (not added to Directory Record)
+  - `3`: Obfuscated and hidden (directories only)
+</ParamField>
+
+<ParamField path="order" type="number" default="0">
+  Custom directory record order for images with `new_type="true"`. This setting doesn't modify LBA and is per-directory. Files/folders with negative order appear first, followed by unordered items (order=0), then positive order items
+</ParamField>
+
+### Using srcdir
+
+The `srcdir` attribute simplifies file paths:
+
+```xml
+<!-- Without srcdir -->
+<dir name="textures">
+  <file name="wall.tim" source="assets/textures/wall.tim"/>
+  <file name="floor.tim" source="assets/textures/floor.tim"/>
+</dir>
+
+<!-- With srcdir -->
+<dir name="textures" srcdir="assets/textures">
+  <file name="wall.tim" source="wall.tim"/>
+  <file name="floor.tim" source="floor.tim"/>
+</dir>
+```
+
+## Dummy Sectors
+
+The `<dummy>` element creates invisible dummy sectors in the file system. These are commonly used at the end of the data track to prevent drive runaway, which can damage the drive mechanism.
+
+```xml
+<dummy sectors="1024" type="0"/>
+```
+
+### Dummy Attributes
+
+<ParamField path="sectors" type="number" required>
+  Size of the dummy file in sector units. Each sector is 2048 bytes, so 1024 sectors = 2 MB
+</ParamField>
+
+<ParamField path="type" type="number" default="0">
+  The dummy's submode value (0-255):
+  - `0`: Form 1 dummy (0x00) - default
+  - `32`: Form 2 dummy (0x20)
+</ParamField>
+
+<ParamField path="ecc_addr" type="boolean" default="false">
+  Calculates the ECC with the real address instead of a zeroed one. Only useful for some CD-DA games' last DATA postgap sector that has non-standard ECC calculation
+</ParamField>
+
+<Info>
+  Dummy files are completely invisible - they don't appear in the directory records, ensuring a clean directory structure when viewed in a file browser.
+</Info>
+
+## Nesting Limits
+
+<Warning>
+  **ISO 9660 Restrictions:**
+  - Maximum directory depth: 8 levels (including root)
+  - Maximum path length: 255 characters
+  - Directory names should be 8 characters or less (31 maximum)
+</Warning>
+
+## Complete Example
+
+```xml
+<directory_tree>
+  <!-- Root files -->
+  <file name="system.cnf" source="config/system.txt"/>
+  <file name="game.exe" source="build/game.exe"/>
+  
+  <!-- Data directory -->
+  <dir name="data" srcdir="gamedata">
+    <file name="levels.dat" source="levels.dat"/>
+    <file name="enemies.dat" source="enemies.dat"/>
+  </dir>
+  
+  <!-- Media directory with nested structure -->
+  <dir name="media">
+    <!-- XA audio streams -->
+    <dir name="xa" srcdir="assets/audio">
+      <file name="bgm01.xa" type="xa" source="bgm01.xa"/>
+      <file name="bgm02.xa" type="xa" source="bgm02.xa"/>
+    </dir>
+    
+    <!-- STR video files -->
+    <dir name="movies" srcdir="assets/video">
+      <file name="intro.str" type="str" source="intro.str"/>
+      <file name="ending.str" type="str" source="ending.str"/>
+    </dir>
+  </dir>
+  
+  <!-- Hidden directory for debug files -->
+  <dir name="debug" hidden="1">
+    <file name="debug.dat" source="debug/debug.dat"/>
+  </dir>
+  
+  <!-- Dummy sectors to prevent drive runaway -->
+  <dummy sectors="1024" type="0"/>
+  
+  <!-- CD-DA reference file (must be last in data track) -->
+  <file name="audio1.da" trackid="02" type="da"/>
+</directory_tree>
+```
+
+## File Ordering
+
+Files and directories are sorted in the ISO according to these rules:
+
+1. If `new_type="true"` in the track element, files are sorted by the `order` attribute
+2. Otherwise, files are sorted alphabetically by name
+3. Directories always appear in directory listings
+
+<Accordion title="Custom Order Example (new_type mode)">
+
+```xml
+<track type="data" new_type="true">
+  <directory_tree>
+    <!-- This file will appear first (order=-1) -->
+    <file name="critical.dat" source="critical.dat" order="-1"/>
+    
+    <!-- These files use default order (0) -->
+    <file name="normal1.dat" source="normal1.dat"/>
+    <file name="normal2.dat" source="normal2.dat"/>
+    
+    <!-- This file will appear last (order=1) -->
+    <file name="optional.dat" source="optional.dat" order="1"/>
+  </directory_tree>
+</track>
+```
+
+</Accordion>
+
+## DA File Placement
+
+<Warning>
+  DA (Digital Audio) files that reference CD-DA tracks should be placed at the end of the directory tree, just before or after dummy sectors. Placing them elsewhere may corrupt the ISO image.
+</Warning>
+
+```xml
+<directory_tree>
+  <!-- Regular files first -->
+  <file name="system.cnf" source="system.txt"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Dummy sectors -->
+  <dummy sectors="1024"/>
+  
+  <!-- DA files last -->
+  <file name="track02.da" trackid="02" type="da"/>
+  <file name="track03.da" trackid="03" type="da"/>
+</directory_tree>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Elements" icon="file" href="/xml/file-elements">
+    Learn about file types and attributes
+  </Card>
+  <Card title="Audio Tracks" icon="music" href="/xml/audio-tracks">
+    Add CD-DA audio tracks
+  </Card>
+</CardGroup>

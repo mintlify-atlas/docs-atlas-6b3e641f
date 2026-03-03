@@ -1,0 +1,497 @@
+---
+title: Working with CDDA Audio
+description: Add CD Digital Audio tracks to PlayStation ISOs for high-quality music and multi-track audio discs
+---
+
+CDDA (Compact Disc Digital Audio) tracks provide full CD-quality audio for PlayStation games, commonly used for background music and audio that plays independently of game data.
+
+## What is CDDA?
+
+CDDA audio tracks:
+
+- Store uncompressed 44.1 kHz, 16-bit stereo audio
+- Play through the CD audio interface, not game memory
+- Live in separate tracks beyond the data track
+- Can be played on standard CD players
+- Support up to 99 audio tracks per disc
+
+## CDDA vs XA Audio
+
+| Feature | CDDA Audio | XA Audio |
+|---------|-----------|----------|
+| Quality | CD-quality (uncompressed) | Compressed ADPCM |
+| Location | Separate CD tracks | Files in data track |
+| Access | By track number | By file name |
+| Memory | None (streams from CD) | None (streams from CD) |
+| Storage | ~10 MB per minute | ~2.5 MB per minute |
+
+<Tip>
+Use CDDA for music tracks that need maximum quality. Use XA for in-game audio that needs to be accessed by filename or when disc space is limited.
+</Tip>
+
+## Adding CDDA Tracks
+
+<Steps>
+
+<Step title="Prepare Audio Files">
+
+CDDA tracks can be created from multiple formats:
+
+- **WAV**: Uncompressed audio (recommended)
+- **FLAC**: Lossless compression
+- **PCM**: Raw audio data
+- **MP3**: Lossy compression (not recommended for archival)
+
+For best results, ensure audio is in Redbook format:
+
+- **Sample Rate**: 44100 Hz
+- **Bit Depth**: 16-bit
+- **Channels**: Stereo
+
+<Warning>
+While mkpsxiso accepts MP3 files, use lossless formats (WAV or FLAC) for CD audio to maintain quality. MP3 re-encoding introduces additional quality loss.
+</Warning>
+
+</Step>
+
+<Step title="Add Audio Tracks to XML">
+
+Define audio tracks after your data track:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<iso_project image_name="myimage.bin" cue_sheet="myimage.cue">
+  
+  <!-- Data track -->
+  <track type="data">
+    <!-- ... directory_tree contents ... -->
+  </track>
+  
+  <!-- CDDA audio tracks -->
+  <track type="audio" source="audio/track02.wav"/>
+  <track type="audio" source="audio/track03.wav"/>
+  <track type="audio" source="audio/track04.wav"/>
+  
+</iso_project>
+```
+
+<Note>
+The data track is always track 01. Audio tracks start at track 02.
+</Note>
+
+</Step>
+
+<Step title="Configure Cue Sheet">
+
+When using CDDA tracks, you must specify a cue sheet:
+
+```xml
+<iso_project image_name="myimage.bin" cue_sheet="myimage.cue">
+```
+
+The cue sheet is automatically generated and describes:
+
+- Track count and types
+- Track start positions
+- Audio format specifications
+
+</Step>
+
+<Step title="Build and Verify">
+
+Build your ISO with audio tracks:
+
+```bash
+mkpsxiso myproject.xml
+```
+
+mkpsxiso will:
+
+- Generate the `.bin` file with all tracks
+- Create a `.cue` file describing track layout
+- Report track positions and sizes
+- Validate audio format
+
+</Step>
+
+</Steps>
+
+## Track IDs and DA Files
+
+### Understanding DA Files
+
+DA (Direct Audio) files are **not** actual audio files. They're directory entries that link to CDDA tracks:
+
+```xml
+<directory_tree>
+  <!-- Regular files -->
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- DA files link to audio tracks -->
+  <file name="track02.da" trackid="02" type="da"/>
+  <file name="track03.da" trackid="03" type="da"/>
+  <file name="track04.da" trackid="04" type="da"/>
+</directory_tree>
+
+<!-- Actual audio track definitions -->
+<track type="audio" trackid="02" source="audio/bgm1.wav"/>
+<track type="audio" trackid="03" source="audio/bgm2.wav"/>
+<track type="audio" trackid="04" source="audio/bgm3.wav"/>
+```
+
+The `trackid` attribute connects DA files to their corresponding audio tracks.
+
+### Why Use DA Files?
+
+DA files allow games to:
+
+- Browse audio tracks as if they were files
+- Use standard file I/O to access track information
+- Display track names in in-game menus
+- Treat audio tracks consistently with other game data
+
+<Note>
+DA files appear in the directory structure with the CD-Audio attribute set, making them show as WAV files in some file browsers (though they're just links to tracks).
+</Note>
+
+### DA File Placement
+
+<Warning>
+DA files MUST be placed last in your directory tree. Placing them earlier may corrupt your ISO image.
+</Warning>
+
+```xml
+<directory_tree>
+  <!-- All regular files first -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  <dir name="data">
+    <!-- ... game data ... -->
+  </dir>
+  
+  <!-- DA files at the end -->
+  <file name="track02.da" trackid="02" type="da"/>
+  <file name="track03.da" trackid="03" type="da"/>
+  <file name="track04.da" trackid="04" type="da"/>
+</directory_tree>
+```
+
+## Pregaps
+
+### What are Pregaps?
+
+Pregaps are silent sections before each audio track:
+
+- Standard CD format requires 2 seconds of pregap
+- Track 01 (data) has a 150-sector (2 second) pregap
+- Audio tracks 03+ default to 2-second pregaps
+- Track 02 defaults to 0 seconds (no pregap)
+
+### Default Pregap Behavior
+
+```xml
+<!-- Track 02: No pregap -->
+<track type="audio" source="audio/track02.wav"/>
+
+<!-- Track 03+: 2 second pregap -->
+<track type="audio" source="audio/track03.wav"/>
+<track type="audio" source="audio/track04.wav"/>
+```
+
+### Custom Pregaps
+
+Specify custom pregap durations:
+
+```xml
+<track type="audio" source="audio/track03.wav">
+  <pregap duration="00:04:00"/>
+</track>
+```
+
+Duration format: `MM:SS:FF` (minutes:seconds:frames, where frames are 0-74)
+
+Examples:
+- `00:02:00` = 2 seconds (default)
+- `00:04:00` = 4 seconds
+- `00:00:30` = 30 frames (~0.4 seconds)
+- `00:10:00` = 10 seconds
+
+<Note>
+Pregap duration is filled with silence. The audio source file does not include the pregap data.
+</Note>
+
+## Supported Audio Formats
+
+### WAV Files
+
+```xml
+<track type="audio" source="audio/music.wav"/>
+```
+
+Best for:
+- Uncompressed source audio
+- Direct conversion to CDDA
+- Fastest processing time
+
+### FLAC Files
+
+```xml
+<track type="audio" source="audio/music.flac"/>
+```
+
+Best for:
+- Lossless compression (~50% size reduction)
+- Archival storage
+- Maintaining perfect quality
+
+<Tip>
+FLAC is ideal for source audio files. It reduces storage requirements while maintaining bit-perfect quality.
+</Tip>
+
+### PCM Files
+
+```xml
+<track type="audio" source="audio/music.pcm"/>
+```
+
+Best for:
+- Raw audio data
+- Direct from audio hardware
+- No container format overhead
+
+### MP3 Files
+
+```xml
+<track type="audio" source="audio/music.mp3"/>
+```
+
+Best for:
+- Quick testing
+- When source is already MP3
+
+Avoid for:
+- Final releases (lossy compression)
+- High-quality music
+
+## Common CDDA Patterns
+
+### Music-Only Game
+
+```xml
+<iso_project image_name="musicgame.bin" cue_sheet="musicgame.cue">
+  
+  <track type="data">
+    <!-- Minimal game data -->
+    <directory_tree>
+      <file name="system.cnf" source="system.cnf"/>
+      <file name="game.exe" source="game.exe"/>
+      
+      <!-- DA files for all tracks -->
+      <file name="track02.da" trackid="02" type="da"/>
+      <file name="track03.da" trackid="03" type="da"/>
+      <file name="track04.da" trackid="04" type="da"/>
+      <!-- ... more tracks ... -->
+    </directory_tree>
+  </track>
+  
+  <!-- 20+ audio tracks -->
+  <track type="audio" trackid="02" source="music/song01.flac"/>
+  <track type="audio" trackid="03" source="music/song02.flac"/>
+  <track type="audio" trackid="04" source="music/song03.flac"/>
+  <!-- ... more tracks ... -->
+  
+</iso_project>
+```
+
+### Background Music Tracks
+
+```xml
+<!-- Data track with game content -->
+<track type="data">
+  <!-- ... game files ... -->
+  
+  <!-- DA files at end -->
+  <file name="menu.da" trackid="02" type="da"/>
+  <file name="gameplay.da" trackid="03" type="da"/>
+  <file name="boss.da" trackid="04" type="da"/>
+</track>
+
+<!-- Music tracks -->
+<track type="audio" trackid="02" source="audio/menu_theme.wav"/>
+<track type="audio" trackid="03" source="audio/game_music.wav"/>
+<track type="audio" trackid="04" source="audio/boss_theme.wav"/>
+```
+
+### Unreferenced Audio Tracks
+
+You can add audio tracks without DA files:
+
+```xml
+<track type="data">
+  <!-- No DA files -->
+  <directory_tree>
+    <file name="system.cnf" source="system.cnf"/>
+    <file name="game.exe" source="game.exe"/>
+  </directory_tree>
+</track>
+
+<!-- Audio tracks accessed by track number only -->
+<track type="audio" source="audio/track02.wav"/>
+<track type="audio" source="audio/track03.wav"/>
+```
+
+Game code accesses these tracks directly by number using CD audio commands.
+
+## Extracting CDDA Tracks
+
+Use dumpsxiso to extract audio tracks:
+
+### Extract as WAV
+
+```bash
+dumpsxiso -x game.bin -da wav
+```
+
+### Extract as FLAC
+
+```bash
+dumpsxiso -x game.bin -da flac
+```
+
+### Extract as PCM
+
+```bash
+dumpsxiso -x game.bin -da pcm
+```
+
+Extracted tracks are saved as:
+```
+game_dump/
+├── track02.wav
+├── track03.wav
+└── track04.wav
+```
+
+## LBA Calculations
+
+### Track Positioning
+
+Audio tracks are positioned after the data track:
+
+```
+Track 01 (Data): LBA 0 - 100,000
+Track 02 (Audio): LBA 100,000 - 150,000
+Track 03 (Audio): LBA 150,000 - 200,000
+```
+
+### Generating LBA Logs
+
+```bash
+mkpsxiso myproject.xml -lba logfile.txt
+```
+
+The log includes:
+- Data track files and their LBAs
+- Audio track start positions
+- Pregap information
+- Total disc size
+
+<Note>
+Unreferenced audio tracks (without DA files) are now listed in LBA logs as of version 2.20.
+</Note>
+
+## Playback in Games
+
+### CD Audio Commands
+
+Games play CDDA tracks using LibCD functions:
+
+```c
+// PlayStation SDK example
+CdlLOC loc;
+CdIntToPos(track_lba, &loc);
+CdControlF(CdlPlay, (u_char*)&loc);
+```
+
+### Track Numbers
+
+Access tracks by number:
+
+- Track 1: Data track (don't play as audio)
+- Track 2+: Audio tracks
+
+Or via DA files using standard file operations.
+
+## Troubleshooting
+
+### Incorrect Track Length
+
+If track lengths are wrong:
+
+- Verify source audio is correct format (44.1 kHz, 16-bit, stereo)
+- Check for file corruption
+- Re-export from original source
+
+### Audio Not Playing
+
+If audio doesn't play:
+
+- Verify cue sheet was generated
+- Check track numbers in game code
+- Test in different emulators
+- Verify on actual hardware
+
+### DA Files Not Visible
+
+If DA files don't appear:
+
+- Ensure `type="da"` is specified
+- Verify `trackid` matches actual track
+- Check DA files are placed last in directory tree
+
+### Cue Sheet Missing
+
+If no cue sheet is generated:
+
+- Add `cue_sheet` attribute to `<iso_project>`
+- Ensure at least one audio track exists
+- Check for build errors in console output
+
+## Best Practices
+
+<Tip>
+**CDDA Best Practices:**
+- Use FLAC for source audio (lossless, smaller than WAV)
+- Always specify Redbook format (44.1 kHz, 16-bit, stereo)
+- Place DA files last in directory tree
+- Test on real hardware for accurate playback
+- Keep track count reasonable (under 20 for most games)
+- Use descriptive trackid values for clarity
+</Tip>
+
+### Audio Quality
+
+- Never use lossy formats for final builds
+- Maintain 44.1 kHz sample rate
+- Keep bit depth at 16-bit
+- Use stereo (not mono or surround)
+
+### Organization
+
+```xml
+<!-- Clear organization -->
+<track type="audio" trackid="02" source="music/01_title_screen.flac"/>
+<track type="audio" trackid="03" source="music/02_gameplay_1.flac"/>
+<track type="audio" trackid="04" source="music/03_gameplay_2.flac"/>
+<track type="audio" trackid="05" source="music/04_boss_theme.flac"/>
+```
+
+Use descriptive filenames that indicate track purpose.
+
+## Next Steps
+
+- Combine with [XA Audio](/guides/xa-audio) for in-game sounds
+- Add [STR Video](/guides/str-video) with synced audio
+- Learn about [LBA Optimization](/guides/lba-optimization) for audio tracks
+- Understand [License Data](/guides/license-data) for bootable discs

@@ -1,0 +1,138 @@
+---
+title: Introduction to mkpsxiso
+description: Build PlayStation CD images from XML documents with a modern, cross-platform ISO creation tool
+---
+
+# Introduction to mkpsxiso
+
+`mkpsxiso` is a modern, cross-platform tool for building PlayStation CD images from XML documents. It provides a faster replacement for the legacy BUILDCD tool from the official PlayStation development SDK, with output compatible with modern CD burning tools and emulators.
+
+## What is mkpsxiso?
+
+`mkpsxiso` builds PlayStation CD images from an XML document, outputting standard `.bin` and `.cue` or `.iso` files ready to burn to CD or use in an emulator. The companion tool `dumpsxiso` can dump existing PlayStation CD images to files and generate mkpsxiso-compatible XML documents.
+
+<Note>
+The tool was created to ease PlayStation homebrew development, ROM hacking, and reverse engineering efforts, while also serving as a general ISO creation tool compliant with the ISO9660 standard.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="XML-Based Projects" icon="code">
+    Uses XML for scripting ISO projects with full control over file ordering and attributes
+  </Card>
+  
+  <Card title="Multiple Output Formats" icon="disc">
+    Outputs ISO images directly to `.iso` or `.bin`+`.cue` image format ready for burning or emulation
+  </Card>
+  
+  <Card title="Mixed-Mode Support" icon="video">
+    Supports mixed-mode CD-XA stream files including XA audio and STR video used by PlayStation games
+  </Card>
+  
+  <Card title="CDDA Audio Tracks" icon="music">
+    Supports CDDA audio tracks from wav, flac, pcm, and mp3 files, both as DA files and audio tracks
+  </Card>
+  
+  <Card title="License Injection" icon="key">
+    Properly injects Sony license data into ISO images eliminating the need for extra programs
+  </Card>
+  
+  <Card title="LBA Control" icon="ruler">
+    File LBA (Logical Block Address) controlled by file order allowing for seek time optimization
+  </Card>
+</CardGroup>
+
+## Why Choose mkpsxiso?
+
+### Cross-Platform Modern Tool
+
+Unlike BUILDCD which only runs on 16-bit DOS compatible systems, mkpsxiso is a modern cross-platform tool that works on Windows, Linux, and macOS. Its output format is compatible with modern CD burning tools and emulators.
+
+### Precise File Control
+
+Other ISO creation tools like MKISOFS don't allow controlling the precise order of files, which is necessary for optimizing access times on PlayStation hardware. mkpsxiso gives you full control over file placement.
+
+### PlayStation-Specific Features
+
+The tool supports PlayStation-specific features that generic ISO tools don't:
+
+- Mixed-mode CD-XA files for streaming audio and video
+- DA (Direct Audio) file support for CD-DA tracks
+- Proper license data injection
+- XA audio and MDEC video stream support
+- Timestamps and XA attributes preservation for 1:1 rebuilds
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Learn how to compile mkpsxiso from source or download pre-built binaries
+  </Card>
+  
+  <Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+    Create your first PlayStation ISO image with a complete working example
+  </Card>
+  
+  <Card title="XML Reference" icon="file-code" href="/reference/xml-structure">
+    Explore the XML schema and all available elements and attributes
+  </Card>
+  
+  <Card title="Command Reference" icon="terminal" href="/commands/mkpsxiso">
+    View all available command-line options and usage examples
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+### Homebrew Development
+
+Create bootable PlayStation disc images for your homebrew games and applications. The tool handles all the complexity of ISO9660 filesystem creation and PlayStation-specific requirements.
+
+### ROM Hacking
+
+Modify existing PlayStation games by dumping ISOs with `dumpsxiso`, editing files, and rebuilding with `mkpsxiso`. Almost all images can now be rebuilt 1:1 with preserved timestamps and attributes.
+
+### Game Preservation
+
+Document the precise structure of PlayStation disc images with XML output. Extract and rebuild images while maintaining the exact original structure.
+
+## Tools Overview
+
+<Tip>
+mkpsxiso comes with two complementary tools that work together for the complete ISO workflow.
+</Tip>
+
+### mkpsxiso
+
+The main tool for **building** PlayStation ISO images from XML project files. It reads your XML document describing the disc structure and creates a compliant ISO image.
+
+**Key capabilities:**
+- Build ISO images from XML documents
+- Control precise file LBA locations
+- Support for data tracks and CDDA audio
+- License data injection
+- Generate LBA location logs for debugging
+
+### dumpsxiso
+
+The companion tool for **dumping** existing PlayStation ISO images to files and generating XML documents compatible with mkpsxiso.
+
+**Key capabilities:**
+- Extract all files from PlayStation ISOs
+- Generate mkpsxiso-compatible XML documents
+- Extract CDDA tracks as wav, flac, or pcm
+- Preserve timestamps and XA attributes
+- Dump license data from existing discs
+
+## Version Information
+
+Current version: **2.20** (December 24, 2025)
+
+<Warning>
+For the tool to create bootable PlayStation ISOs, you must have a license file from the official PsyQ SDK. The license data is not included with mkpsxiso to avoid legal issues. See the [Starting PSX Development](https://psx.arthus.net/starting.html) guide for more information.
+</Warning>
+
+## Next Steps
+
+Ready to get started? Head over to the [Installation](/installation) guide to set up mkpsxiso, or jump straight to the [Quick Start Guide](/quickstart) if you already have it installed.

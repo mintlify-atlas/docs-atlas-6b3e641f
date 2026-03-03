@@ -1,0 +1,153 @@
+---
+title: File Types
+description: Understanding different file types supported by mkpsxiso for PlayStation CD images
+---
+
+mkpsxiso supports various file types specific to PlayStation CD-ROM development, including standard data files, mixed-mode CD-XA files, and CD-DA audio tracks.
+
+## Data Files
+
+Standard data files are the default file type used in PlayStation CD images. These files:
+
+- Are stored as Mode 2 Form 1 sectors on the disc
+- Include error detection and correction (EDC/ECC)
+- Can be any type of game data, executables, textures, models, etc.
+- Are specified in XML without any special type attribute
+
+```xml
+<file name="SYSTEM.CNF" source="system.cnf"/>
+<file name="PSX.EXE" source="build/game.exe"/>
+```
+
+## Mixed-Mode Files (XA/STR)
+
+mixed-mode files are CD-XA (eXtended Architecture) stream files used for audio and video streaming on PlayStation.
+
+### XA Audio Files
+
+XA audio files contain ADPCM compressed audio data that can be streamed directly from the CD:
+
+- Used for background music and sound effects
+- Can contain multiple audio channels interleaved
+- Stored as Mode 2 Form 2 sectors (no EDC/ECC)
+- Must have proper XA subheaders
+
+```xml
+<file name="MUSIC.XA" source="audio/bgm.xa" type="mixed"/>
+```
+
+### STR Video Files
+
+STR files contain MDEC video streams, often with interleaved audio:
+
+- Used for FMV (Full Motion Video) sequences
+- Contain alternating Mode 2 Form 1 (video) and Form 2 (audio) sectors
+- Require proper subheader configuration
+- mkpsxiso detects data sectors automatically for STR files
+
+```xml
+<file name="INTRO.STR" source="video/intro.str" type="mixed"/>
+```
+
+<Warning>
+  XA and STR source files must have proper RIFF headers and subheaders. mkpsxiso will error on improperly ripped or encoded files. Ensure files are dumped correctly from original media.
+</Warning>
+
+### Important Notes for Mixed Files
+
+- Version 1.25 unified `xa` and `str` modes into a single `mixed` mode
+- Legacy `xa` and `str` type attributes are still supported as aliases
+- Files must include proper XA subheaders in the source data
+- mkpsxiso implements proper EOL/EOF bits for subheaders
+- Submode values can be preserved with the `type` XML attribute for dummy sectors
+
+## DA (Digital Audio) Files
+
+DA files are pointers to CD-DA (Digital Audio) tracks on the disc. These appear as files in the ISO filesystem but actually reference audio track data:
+
+- Map directly to CD Audio tracks by LBA address
+- Appear with CD-Audio attribute making them accessible as WAV files
+- Used in games like Wipeout 3 for music playback
+- The OS transparently converts them to WAV format when read
+
+```xml
+<file name="TRACK02.DA" source="audio/track02.wav" type="da"/>
+```
+
+### Supported Audio Formats for DA/CDDA
+
+mkpsxiso can pack the following audio formats as CDDA tracks or DA files:
+
+- **WAV** - Standard PCM audio files
+- **FLAC** - Lossless compressed audio (requires libFLAC)
+- **PCM** - Raw audio data
+- **MP3** - Compressed audio
+
+```xml
+<track type="audio">
+  <pregap>00:02:00</pregap>
+  <source>audio/track02.flac</source>
+</track>
+```
+
+dumpsxiso can extract CDDA tracks as WAV, FLAC, or PCM formats.
+
+## File Type Attributes
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>XML Attribute</th>
+      <th>Sector Format</th>
+      <th>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Data</td>
+      <td>(default)</td>
+      <td>Mode 2 Form 1</td>
+      <td>Game data, executables</td>
+    </tr>
+    <tr>
+      <td>Mixed/XA</td>
+      <td>`type="mixed"`</td>
+      <td>Mode 2 Form 2</td>
+      <td>XA audio streams</td>
+    </tr>
+    <tr>
+      <td>Mixed/STR</td>
+      <td>`type="mixed"`</td>
+      <td>Mode 2 Form 1+2</td>
+      <td>MDEC video with audio</td>
+    </tr>
+    <tr>
+      <td>DA</td>
+      <td>`type="da"`</td>
+      <td>CD-DA</td>
+      <td>CD Audio file references</td>
+    </tr>
+  </tbody>
+</table>
+
+## Special XML Attributes
+
+mkpsxiso supports several XML attributes for maintaining disc image integrity:
+
+- `xa_edc` - Maintain EDC Form 2 integrity for games without it
+- `hidden` - Mark files/folders as hidden (formerly `h_flag`)
+- `type` - Subheader submode value for dummy sectors
+- `order` - Custom sort logic for 2003+ games
+- `ps2` - Regenerate correct submode for PS2 CD-ROM games
+- `ecc_addr` - Calculate real address for last postgap sector
+
+## Dummy Sectors
+
+Dummy sectors are non-file sectors that preserve LBA ordering in disc images:
+
+```xml
+<dummy sectors="32"/>
+```
+
+These are essential for 1:1 disc rebuilds and maintaining original file LBA addresses.

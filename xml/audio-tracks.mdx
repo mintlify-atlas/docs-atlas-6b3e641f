@@ -1,0 +1,298 @@
+---
+title: Audio Tracks & DA Files
+description: Link CD-DA audio tracks to DA files in the ISO file system
+---
+
+PlayStation discs can contain CD-DA (Digital Audio) tracks that can be played on standard CD players. mkpsxiso supports two ways to include audio tracks:
+
+1. **Referenced audio tracks** - Linked to DA files in the data track
+2. **Unreferenced audio tracks** - Playable on CD players but not accessible from the game
+
+## DA Files
+
+DA files are special file system entries that reference CD-DA audio tracks. They allow games to access audio tracks through the file system.
+
+```xml
+<directory_tree>
+  <file name="SYSTEM.CNF" source="system.txt"/>
+  <file name="GAME.EXE" source="game.exe"/>
+  
+  <!-- DA files must be at the end -->
+  <dummy sectors="1024"/>
+  <file name="BGM_01.DA" trackid="02" type="da"/>
+  <file name="BGM_02.DA" trackid="03" type="da"/>
+</directory_tree>
+```
+
+### DA File Attributes
+
+<ParamField path="name" type="string" required>
+  The file name as it appears in the ISO. Must follow ISO 9660 naming rules and typically ends with `.DA`
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  Must be set to `da` for Digital Audio files
+</ParamField>
+
+<ParamField path="trackid" type="string" required>
+  References the audio track with the matching `trackid` attribute. Must match a `<track type="audio" trackid="...">` element
+</ParamField>
+
+<Warning>
+  **Critical placement rule:** DA files should be placed at the end of the directory tree. Placing them before regular files may corrupt your ISO image.
+</Warning>
+
+## Referenced Audio Tracks
+
+Referenced audio tracks are linked to DA files and can be accessed by the game through the file system.
+
+### Complete Example
+
+```xml
+<iso_project image_name="musicgame.bin" cue_sheet="musicgame.cue">
+  <track type="data" xa_edc="true">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="MUSICGAME"
+    />
+    <license file="licensea.dat"/>
+    
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="system.txt"/>
+      <file name="GAME.EXE" source="game.exe"/>
+      
+      <dir name="DATA">
+        <file name="LEVELS.DAT" source="levels.dat"/>
+      </dir>
+      
+      <!-- DA files at the end -->
+      <dummy sectors="1024"/>
+      <file name="BGM_01.DA" trackid="02" type="da"/>
+      <file name="BGM_02.DA" trackid="03" type="da"/>
+    </directory_tree>
+  </track>
+  
+  <!-- Audio tracks with matching trackid -->
+  <track type="audio" trackid="02" source="audio/bgm01.wav"/>
+  <track type="audio" trackid="03" source="audio/bgm02.wav"/>
+</iso_project>
+```
+
+### How It Works
+
+1. Define DA files in the `<directory_tree>` with unique `trackid` values
+2. Define matching audio tracks with `type="audio"` and the same `trackid`
+3. mkpsxiso creates file system entries pointing to the audio track LBAs
+4. Games can read the DA file to find the audio track location
+
+## Unreferenced Audio Tracks
+
+Audio tracks without a `trackid` attribute are not linked to DA files. They exist on the disc and can be played on CD players but are not accessible from the game.
+
+```xml
+<iso_project image_name="game.bin" cue_sheet="game.cue">
+  <track type="data" xa_edc="true">
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="system.txt"/>
+      <file name="GAME.EXE" source="game.exe"/>
+    </directory_tree>
+  </track>
+  
+  <!-- Referenced track -->
+  <track type="audio" trackid="02" source="ingame_bgm.wav"/>
+  
+  <!-- Unreferenced bonus tracks -->
+  <track type="audio" source="bonus_track1.wav"/>
+  <track type="audio" source="bonus_track2.wav"/>
+</iso_project>
+```
+
+In this example:
+- Track 2 has a `trackid` and can be accessed via a DA file
+- Tracks 3 and 4 are unreferenced and only playable on CD players
+
+## Audio Track Requirements
+
+### Supported Formats
+
+<ParamField path="source" type="string" required>
+  Path to the audio file. Supported formats:
+  - **WAV** - Recommended, especially in Red Book format (44100Hz, 16-bit, stereo)
+  - **FLAC** - Lossless compression, converted to Red Book
+  - **MP3** - Lossy format, converted to Red Book (quality loss)
+  - **PCM** - Raw audio data
+</ParamField>
+
+### Red Book Format
+
+For best quality and compatibility, use Red Book audio format:
+
+- Sample rate: 44100 Hz
+- Bit depth: 16-bit
+- Channels: Stereo (2 channels)
+
+<Info>
+  Non-Red Book formats are automatically converted, but this may introduce quality loss for lossy formats like MP3.
+</Info>
+
+## Track Ordering
+
+Tracks are numbered sequentially starting from 1:
+
+- Track 1: Always the data track
+- Track 2+: Audio tracks in the order they appear in the XML
+
+```xml
+<!-- Track 1: Data track (automatic) -->
+<track type="data">
+  <directory_tree>
+    <file name="TRACK02.DA" trackid="02" type="da"/>
+    <file name="TRACK03.DA" trackid="03" type="da"/>
+  </directory_tree>
+</track>
+
+<!-- Track 2: First audio track -->
+<track type="audio" trackid="02" source="track02.wav"/>
+
+<!-- Track 3: Second audio track -->
+<track type="audio" trackid="03" source="track03.wav"/>
+```
+
+## Pregap Configuration
+
+Each audio track can have a pregap (pause) before it starts. The default is 2 seconds (150 sectors).
+
+```xml
+<track type="audio" trackid="02" source="track02.wav">
+  <pregap duration="00:04:00"/>
+</track>
+```
+
+<ParamField path="duration" type="string">
+  Pregap duration in `MM:SS:FF` format:
+  - `MM`: Minutes (00-99)
+  - `SS`: Seconds (00-59)
+  - `FF`: Frames (00-74, where 75 frames = 1 second)
+  
+  The pregap is filled with silence
+</ParamField>
+
+### Pregap Examples
+
+```xml
+<!-- 2 second pregap (default, can be omitted) -->
+<track type="audio" source="track02.wav">
+  <pregap duration="00:02:00"/>
+</track>
+
+<!-- 4 second pregap -->
+<track type="audio" source="track03.wav">
+  <pregap duration="00:04:00"/>
+</track>
+
+<!-- 3.5 second pregap (3 seconds + 37.5/75 frames) -->
+<track type="audio" source="track04.wav">
+  <pregap duration="00:03:37"/>
+</track>
+```
+
+## Complete Working Example
+
+Here's a complete example of a game with both in-game music (via DA files) and bonus audio tracks:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<iso_project image_name="mygame.bin" cue_sheet="mygame.cue">
+  <track type="data" xa_edc="true">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="MYGAME"
+      publisher="MYPUBLISHER"
+    />
+    <license file="licensea.dat"/>
+    
+    <directory_tree>
+      <!-- Boot files -->
+      <file name="SYSTEM.CNF" source="system.txt"/>
+      <file name="GAME.EXE" source="game.exe"/>
+      
+      <!-- Game data -->
+      <dir name="DATA">
+        <file name="LEVEL1.DAT" source="data/level1.dat"/>
+        <file name="LEVEL2.DAT" source="data/level2.dat"/>
+      </dir>
+      
+      <!-- XA audio streams -->
+      <dir name="STREAMS">
+        <file name="VOICE01.XA" type="xa" source="audio/voice01.xa"/>
+      </dir>
+      
+      <!-- Dummy sectors to prevent drive runaway -->
+      <dummy sectors="1024"/>
+      
+      <!-- DA files referencing CD-DA tracks -->
+      <file name="BGM_TITLE.DA" trackid="02" type="da"/>
+      <file name="BGM_STAGE1.DA" trackid="03" type="da"/>
+      <file name="BGM_BOSS.DA" trackid="04" type="da"/>
+    </directory_tree>
+  </track>
+  
+  <!-- CD-DA audio tracks -->
+  <!-- Track 2: Title screen music (referenced) -->
+  <track type="audio" trackid="02" source="audio/cdda/title.wav"/>
+  
+  <!-- Track 3: Stage 1 music (referenced) -->
+  <track type="audio" trackid="03" source="audio/cdda/stage1.wav"/>
+  
+  <!-- Track 4: Boss music (referenced) -->
+  <track type="audio" trackid="04" source="audio/cdda/boss.wav">
+    <pregap duration="00:03:00"/>
+  </track>
+  
+  <!-- Track 5-7: Bonus soundtrack (unreferenced) -->
+  <track type="audio" source="audio/bonus/track1.wav"/>
+  <track type="audio" source="audio/bonus/track2.wav"/>
+  <track type="audio" source="audio/bonus/track3.wav"/>
+</iso_project>
+```
+
+## Accessing DA Files from Code
+
+DA files can be read like regular files from PlayStation game code. The file contains information about the track's LBA and size.
+
+```c
+// Example C code (PSY-Q SDK)
+CdlFILE file;
+if (CdSearchFile(&file, "\\BGM_01.DA;1") != NULL) {
+    // file.pos contains the track's position
+    CdControlF(CdlReadS, &file.pos);
+}
+```
+
+## Common Issues
+
+<Warning>
+  **DA files in wrong location**: If DA files are not at the end of the directory tree, your ISO may be corrupted. Always place them after all regular files and dummy sectors.
+</Warning>
+
+<Warning>
+  **Missing trackid**: DA files require a `trackid` attribute that matches an audio track. If the trackid doesn't match any track, mkpsxiso will produce an error.
+</Warning>
+
+<Warning>
+  **Missing cue_sheet**: When using audio tracks, the `cue_sheet` attribute must be specified in the `<iso_project>` element.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tracks" icon="compact-disc" href="/xml/tracks">
+    Learn more about track configuration
+  </Card>
+  <Card title="File Elements" icon="file" href="/xml/file-elements">
+    Explore other file types
+  </Card>
+</CardGroup>

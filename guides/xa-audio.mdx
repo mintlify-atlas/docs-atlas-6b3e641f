@@ -1,0 +1,325 @@
+---
+title: Working with XA Audio
+description: Learn how to add CD-XA ADPCM audio files to PlayStation ISOs for streaming audio playback
+---
+
+CD-XA (eXtended Architecture) audio provides compressed audio streaming for PlayStation games, allowing background music and sound effects without consuming main memory.
+
+## What is XA Audio?
+
+XA audio is a compressed audio format that:
+
+- Uses ADPCM compression (4:1 ratio compared to raw PCM)
+- Streams directly from CD during gameplay
+- Stores audio in 2336-byte Mode 2 Form 2 sectors
+- Supports stereo or mono playback at various sample rates
+- Interleaves multiple audio channels in a single file
+
+## XA Audio in ISO Images
+
+XA files are **mixed-mode files** that require special handling:
+
+- Each sector contains a subheader defining its format
+- Sectors are marked as Mode 2 Form 2 in the CD structure
+- mkpsxiso properly encodes each sector based on its subheader
+- Files must be in raw 2336-byte sector format
+
+## Adding XA Audio to Your ISO
+
+<Steps>
+
+<Step title="Prepare XA Audio Files">
+
+Ensure your XA files are properly formatted:
+
+- Files must be in raw 2336-byte sector format
+- Must contain valid RIFF headers
+- Each sector must have proper XA subheaders
+- Use PlayStation SDK tools or converters to create XA files
+
+<Warning>
+mkpsxiso will error if XA files have improperly ripped or encoded subheaders. Always verify your source files are in the correct format.
+</Warning>
+
+</Step>
+
+<Step title="Add Files to XML">
+
+Define XA files in your ISO project with `type="mixed"`:
+
+```xml
+<directory_tree>
+  <dir name="audio">
+    <file name="bgm01.xa" type="mixed" source="audio/bgm01.xa"/>
+    <file name="bgm02.xa" type="mixed" source="audio/bgm02.xa"/>
+    <file name="sfx.xa" type="mixed" source="audio/sfx_voices.xa"/>
+  </dir>
+</directory_tree>
+```
+
+<Note>
+You can use `type="xa"` as an alias for `type="mixed"`. Both are functionally identical.
+</Note>
+
+</Step>
+
+<Step title="Consider File Placement">
+
+Place XA files strategically in your file order:
+
+```xml
+<directory_tree>
+  <!-- System files -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Level data -->
+  <dir name="levels">
+    <file name="level1.dat" source="levels/level1.dat"/>
+    <!-- Place XA file near level data it's used with -->
+    <file name="level1.xa" type="xa" source="audio/level1.xa"/>
+    
+    <file name="level2.dat" source="levels/level2.dat"/>
+    <file name="level2.xa" type="xa" source="audio/level2.xa"/>
+  </dir>
+</directory_tree>
+```
+
+<Tip>
+Place XA files immediately after the game data they accompany. This minimizes seek times when the game loads a level and starts streaming music.
+</Tip>
+
+</Step>
+
+<Step title="Build and Test">
+
+Build your ISO and test audio playback:
+
+```bash
+mkpsxiso myproject.xml
+```
+
+Test in an emulator or on hardware to verify:
+- Audio plays without stuttering
+- Correct channels play at the right times
+- No audio glitches or pops
+
+</Step>
+
+</Steps>
+
+## XA File Format Details
+
+### Sector Structure
+
+Each XA sector contains:
+
+- **Subheader (8 bytes)**: Defines sector type and audio parameters
+- **Audio Data (2324 bytes)**: Compressed ADPCM samples
+- **EDC (4 bytes)**: Error detection code
+
+### Subheader Fields
+
+The XA subheader specifies:
+
+- **File Number**: Which file this sector belongs to
+- **Channel Number**: Which audio channel (for interleaving)
+- **Submode**: Audio format and sector flags
+- **Coding Info**: Sample rate, stereo/mono, bits per sample
+
+### Form 2 Encoding
+
+XA audio uses Mode 2 Form 2 sectors:
+
+- No error correction (ECC)
+- Optional error detection (EDC)
+- More space for audio data
+- Higher throughput for streaming
+
+## EDC Configuration
+
+Control error detection code generation:
+
+```xml
+<track type="data" xa_edc="true">
+  <!-- Files with EDC in Form 2 sectors -->
+</track>
+```
+
+Or disable EDC for games that don't use it:
+
+```xml
+<track type="data" xa_edc="false">
+  <!-- Files without EDC -->
+</track>
+```
+
+<Note>
+If `xa_edc` is not specified, it defaults to `true`. Most PlayStation games use EDC for better reliability.
+</Note>
+
+## Channel Interleaving
+
+XA files can contain multiple interleaved audio channels:
+
+```
+Sector 1: Channel 0
+Sector 2: Channel 1
+Sector 3: Channel 0
+Sector 4: Channel 1
+...
+```
+
+This allows:
+- Multiple music tracks in one file
+- Left/right channel separation
+- Background music + sound effects
+
+## Creating XA Audio Files
+
+### From PlayStation SDK
+
+Use official tools from the PsyQ SDK:
+
+```bash
+# Example using SDK tools
+vab2xa input.vab output.xa
+```
+
+### Third-Party Tools
+
+Several community tools can create XA files:
+
+- **PSound**: PlayStation sound tool
+- **jPSXdec**: Extract and convert XA from disc images
+- **psximager**: Alternative ISO creation with XA support
+
+### Extracting from Existing Games
+
+Use dumpsxiso to extract XA files:
+
+```bash
+dumpsxiso -x originalgame.bin
+```
+
+Extracted XA files can be:
+- Used as reference for format
+- Modified with hex editors
+- Reused in your own projects
+
+## Common XA Audio Patterns
+
+### Background Music
+
+```xml
+<dir name="music">
+  <file name="title.xa" type="xa" source="audio/title_screen.xa"/>
+  <file name="stage1.xa" type="xa" source="audio/level1_bgm.xa"/>
+  <file name="stage2.xa" type="xa" source="audio/level2_bgm.xa"/>
+  <file name="boss.xa" type="xa" source="audio/boss_theme.xa"/>
+</dir>
+```
+
+### Voice Acting
+
+```xml
+<dir name="voice">
+  <file name="intro.xa" type="xa" source="voice/intro_speech.xa"/>
+  <file name="cutscene01.xa" type="xa" source="voice/scene1_dialog.xa"/>
+  <file name="cutscene02.xa" type="xa" source="voice/scene2_dialog.xa"/>
+</dir>
+```
+
+### Interleaved Multi-Channel
+
+```xml
+<!-- Single file with multiple interleaved channels -->
+<file name="sfxbank.xa" type="xa" source="audio/sfx_8channel.xa"/>
+```
+
+## Troubleshooting
+
+### RIFF Header Errors
+
+If mkpsxiso reports RIFF header errors:
+
+- Verify files are genuine XA format, not WAV files renamed to .xa
+- Check that files haven't been corrupted during transfer
+- Re-export from original source
+
+### Subheader Validation Failures
+
+If subheader checks fail:
+
+- Files may be improperly ripped from a disc
+- Sectors may not have valid XA subheaders
+- Files might be in the wrong sector format
+
+<Warning>
+mkpsxiso performs strict XA validation. Files that work in emulators might still fail validation if they have non-standard formatting.
+</Warning>
+
+### Audio Stuttering or Glitches
+
+If audio playback has issues:
+
+- **Check file placement**: Move XA files closer to related game data
+- **Verify encoding**: Ensure proper sample rate and format
+- **Test on hardware**: Emulator behavior may differ from real hardware
+
+### Wrong Audio Playing
+
+If the wrong audio plays:
+
+- Check channel numbers in subheaders
+- Verify your game code is requesting the correct file
+- Ensure file names match what the game expects
+
+## Performance Considerations
+
+### Streaming Reliability
+
+For smooth playback:
+
+- Place frequently used XA files early on the disc
+- Group related audio files together
+- Avoid placing XA files after large data files
+
+### Seek Time Optimization
+
+```xml
+<!-- Good: Audio near the data it's used with -->
+<file name="level1.dat" source="levels/level1.dat"/>
+<file name="level1_bgm.xa" type="xa" source="audio/level1.xa"/>
+
+<!-- Bad: Audio far from related data -->
+<file name="level1.dat" source="levels/level1.dat"/>
+<!-- ... many other files ... -->
+<file name="level1_bgm.xa" type="xa" source="audio/level1.xa"/>
+```
+
+### Multiple XA Files vs. Single Large File
+
+Consider:
+
+- **Multiple files**: Easier to manage, better for selective loading
+- **Single interleaved file**: Better streaming performance, less seeking
+
+Choose based on your game's audio architecture.
+
+## XA Audio Best Practices
+
+<Tip>
+**Optimal XA Usage:**
+- Use 37800 Hz sample rate for best quality/size ratio
+- Interleave multiple channels for efficiency
+- Place XA files strategically to minimize seek times
+- Test on actual hardware for accurate performance
+- Keep individual XA files under 10MB when possible
+</Tip>
+
+## Next Steps
+
+- Learn about [STR Video](/guides/str-video) for full-motion video
+- Explore [CDDA Audio](/guides/cdda-audio) for CD-quality music
+- Optimize [LBA placement](/guides/lba-optimization) for all streaming media

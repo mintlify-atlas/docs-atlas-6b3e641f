@@ -1,0 +1,456 @@
+---
+title: dumpsxiso
+description: Extract files and generate rebuild scripts from PlayStation ISO images
+---
+
+dumpsxiso extracts the contents of PlayStation ISO images and generates an XML project file that can be used with mkpsxiso to rebuild the disc.
+
+## Usage
+
+```bash
+dumpsxiso [options] <isofile>
+```
+
+### Arguments
+
+<ParamField path="isofile" type="string" required>
+  File name of the BIN or CUE file to extract. Supports any 2352 byte/sector CD-ROM images in MODE2 format.
+  
+  <Tip>
+    Using a CUE file allows dumpsxiso to properly handle multi-bin images and audio tracks.
+  </Tip>
+</ParamField>
+
+## Options
+
+<ParamField path="-h" type="flag">
+  Shows help text and exits.
+  
+  **Alias:** `--help`
+</ParamField>
+
+<ParamField path="-q" type="flag">
+  Quiet mode. Suppresses all output except warnings and errors.
+  
+  **Alias:** `--quiet`
+</ParamField>
+
+<ParamField path="-w" type="flag">
+  Suppress all warnings. Can be used along with `-q` to show only errors.
+  
+  **Alias:** `--warns`
+</ParamField>
+
+<ParamField path="-x" type="string">
+  Optional destination directory for extracted files.
+  
+  **Default:** Working directory / `{isofile stem}`
+  
+  ```bash
+  dumpsxiso -x extracted_files game.bin
+  ```
+</ParamField>
+
+<ParamField path="-s" type="string">
+  Optional XML name/destination for the MKPSXISO rebuild script.
+  
+  **Default:** `{isofile stem}.xml`
+  
+  ```bash
+  dumpsxiso -s rebuild.xml game.bin
+  ```
+</ParamField>
+
+<ParamField path="-pt" type="flag">
+  Go through every known directory in order using the path table. Helps with soft obfuscated games where directories are not listed in directory records.
+  
+  **Alias:** `--path-table`
+  
+  **Example games:** Digimon World 3, Devil May Cry
+  
+  ```bash
+  dumpsxiso -pt game.bin
+  ```
+</ParamField>
+
+<ParamField path="-f" type="flag">
+  Scans all unknown sectors for files. Helps with heavily obfuscated games that hide files outside the standard directory structure.
+  
+  **Alias:** `--force`
+  
+  **Example games:** Xenogears, Final Fantasy VIII
+  
+  <Warning>
+    This option significantly increases scan time as it examines every sector.
+  </Warning>
+  
+  ```bash
+  dumpsxiso -f game.bin
+  ```
+</ParamField>
+
+<ParamField path="-e" type="string">
+  Codec to encode CDDA/DA audio files.
+  
+  **Alias:** `--encode`
+  
+  **Supported codecs:**
+  - `wave` - RIFF WAVE format (default)
+  - `flac` - FLAC compressed audio (if compiled with libFLAC)
+  - `pcm` - Raw PCM audio data
+  
+  **Default:** `wave`
+  
+  ```bash
+  # Extract audio as FLAC
+  dumpsxiso -e flac game.bin
+  
+  # Extract audio as raw PCM
+  dumpsxiso -e pcm game.bin
+  ```
+</ParamField>
+
+<ParamField path="-l" type="flag">
+  Writes all LBA (Logical Block Address) offsets in the XML to force them at build time.
+  
+  **Alias:** `--lba`
+  
+  <Note>
+    This ensures an exact 1:1 rebuild by preserving original file positions.
+  </Note>
+  
+  ```bash
+  dumpsxiso -l game.bin
+  ```
+</ParamField>
+
+<ParamField path="-n" type="flag">
+  Do not generate an XML file and license file. Only extract files.
+  
+  **Alias:** `--noxml`
+  
+  ```bash
+  dumpsxiso -n game.bin
+  ```
+</ParamField>
+
+<ParamField path="-r" type="flag">
+  Dumps all files in raw 2352-byte sector format. Automatically forces `--noxml` option.
+  
+  **Alias:** `--raw`
+  
+  ```bash
+  dumpsxiso -r game.bin
+  ```
+</ParamField>
+
+<ParamField path="-S" type="flag">
+  Outputs a "pretty" XML script where entries are grouped in directories instead of strictly following their original order on the disc.
+  
+  **Alias:** `--sort-by-dir`
+  
+  <Note>
+    This makes the XML more human-readable but may not preserve exact build order.
+  </Note>
+  
+  ```bash
+  dumpsxiso -S game.bin
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Extraction
+
+Extract an ISO with default settings:
+
+```bash
+dumpsxiso game.bin
+```
+
+This creates:
+- `game/` directory with extracted files
+- `game.xml` rebuild script
+- `game/license_data.dat` license file
+
+### Extract with Custom Output Directory
+
+Extract to a specific directory:
+
+```bash
+dumpsxiso -x /tmp/game_files game.bin
+```
+
+### Extract from CUE Sheet
+
+Extract a multi-bin disc using a CUE file:
+
+```bash
+dumpsxiso game.cue
+```
+
+<Tip>
+  Always use the CUE file when available for proper handling of audio tracks and multi-bin images.
+</Tip>
+
+### Extract with FLAC Audio
+
+Extract with audio tracks compressed as FLAC:
+
+```bash
+dumpsxiso -e flac game.cue
+```
+
+### Obfuscated Game Extraction
+
+Extract an obfuscated game using path table and force scan:
+
+```bash
+dumpsxiso -pt -f game.bin
+```
+
+### Exact Rebuild Extraction
+
+Extract with LBA offsets for exact 1:1 rebuild:
+
+```bash
+dumpsxiso -l game.bin
+```
+
+### Files Only (No XML)
+
+Extract only files without generating rebuild script:
+
+```bash
+dumpsxiso -n -x game_files game.bin
+```
+
+### Raw Sector Dump
+
+Dump all files in raw 2352-byte sector format:
+
+```bash
+dumpsxiso -r game.bin
+```
+
+### Silent Extraction
+
+Extract silently without warnings:
+
+```bash
+dumpsxiso -q -w game.bin
+```
+
+## Output Files
+
+### Directory Structure
+
+dumpsxiso recreates the original disc directory structure:
+
+```
+game/
+├── license_data.dat
+├── SYSTEM.CNF
+├── PSX.EXE
+├── DATA/
+│   ├── STAGE01.DAT
+│   └── STAGE02.DAT
+└── AUDIO/
+    └── BGM.STR
+```
+
+### XML Project File
+
+The generated XML file contains:
+
+- ISO identifiers (System ID, Volume ID, etc.)
+- Creation and modification dates
+- License file reference
+- Directory tree structure
+- File entries with attributes (XA permissions, timestamps, etc.)
+- Audio track definitions with pregap information
+- Default attributes for file system entries
+
+### License Data File
+
+The `license_data.dat` file contains the PlayStation license data from the first 16 sectors of the disc. This data is required for the disc to boot on actual hardware.
+
+### Audio Files
+
+Audio tracks are extracted with the specified codec:
+
+- **WAVE format:** Standard RIFF WAVE files with 44.1kHz stereo PCM
+- **FLAC format:** Compressed lossless audio
+- **PCM format:** Raw 16-bit stereo PCM data at 44.1kHz
+
+## File Types
+
+dumpsxiso recognizes and handles different file types:
+
+### Data Files (EntryFile)
+
+Standard files stored in MODE2/Form1 sectors (2048 bytes user data per sector).
+
+### XA/Mixed Files (EntryXA)
+
+CD-XA files stored in MODE2/Form2 sectors (2336 bytes per sector). These typically contain interleaved audio/video data (STR files).
+
+```bash
+# XA files are extracted with full 2336-byte sector data
+```
+
+### DA Audio Files (EntryDA)
+
+CD Digital Audio tracks that can be played on standard CD players. These are extracted as audio files in the specified format.
+
+### Dummy Sectors
+
+Empty padding sectors are represented as `<dummy>` elements in the XML to maintain proper spacing.
+
+## Obfuscation Detection
+
+dumpsxiso automatically detects and handles several obfuscation techniques:
+
+### Hidden Directories
+
+Detects directories not listed in parent directory records but present in the path table. These are marked with the hidden flag in the XML.
+
+```xml
+<dir name="HIDDEN" hidden_flag="34" />
+```
+
+### Hidden Files
+
+Files not referenced in directory records are discovered with `-f` and named `UNKNXXXX.DAT` or `UNKNXXXX.STR`.
+
+### Multiple Disc Types
+
+dumpsxiso detects disc mastering versions:
+
+- **Old type:** Pre-2003 games with name-sorted files
+- **New type:** Post-2003 games with LBA-sorted files
+- **PS2 discs:** PlayStation 2 format with different descriptor flags
+
+## CD-DA Track Handling
+
+### Referenced DA Files
+
+DA files referenced in the file system are extracted with their directory names:
+
+```
+game/AUDIO/TRACK01.WAV
+```
+
+### Unreferenced DA Files
+
+Audio tracks not in the file system are extracted as:
+
+```
+TRACK-02.WAV
+TRACK-03.WAV
+```
+
+<Note>
+  When using a CUE file, dumpsxiso can properly handle pregap detection and multi-bin audio tracks.
+</Note>
+
+## Pregap Detection
+
+The tool automatically detects audio track pregaps:
+
+- **Default pregap:** 150 sectors (2 seconds)
+- **Custom pregaps:** Detected from CUE file or calculated from gaps
+- **Zero pregaps:** Some discs have non-standard pregap sizes
+
+```xml
+<track type="audio" id="02" source="AUDIO/BGM.WAV">
+  <pregap duration="00:02:00" />
+</track>
+```
+
+## Error Detection
+
+### XA EDC (Error Detection Code)
+
+dumpsxiso checks if the disc has proper Form2 EDC data:
+
+```xml
+<track type="data" xa_edc="true" new_type="true">
+```
+
+<Warning>
+  Some games built with buggy mastering tools lack EDC data. This is preserved in the XML for accurate rebuilds.
+</Warning>
+
+## Warnings
+
+### Missing Audio Tracks
+
+```
+WARNING: The CDDA file "TRACK-02.WAV" is out of the iso file bounds.
+         This usually means that the game has audio tracks, and they are on separate files.
+         Try using a .cue file, instead of an ISO image, to be able to access those files.
+```
+
+### Gap Detection
+
+```
+WARNING: There is still a gap of 200 sectors at the end of file system.
+         This could mean that there are missing files or tracks.
+         Try using the -pt or/and -f command, helps with obfuscated file systems.
+```
+
+## Tips
+
+<Tip>
+  Use `-pt` first before resorting to `-f`. Path table scanning is much faster and handles most obfuscation cases.
+</Tip>
+
+<Tip>
+  Extract with `-l` option if you need an exact 1:1 rebuild. This preserves all original LBA positions.
+</Tip>
+
+<Tip>
+  For multi-disc games or games with audio tracks, always use the CUE file instead of a raw BIN file.
+</Tip>
+
+<Tip>
+  The `-S` option creates more readable XML files but may not preserve exact build order. Use `-l` if build order matters.
+</Tip>
+
+<Tip>
+  FLAC encoding (`-e flac`) significantly reduces the size of extracted audio tracks while maintaining lossless quality.
+</Tip>
+
+## Default Values
+
+<ParamField path="Output directory" type="string" default="{isofile stem}/">
+  Created in working directory if `-x` not specified
+</ParamField>
+
+<ParamField path="XML file" type="string" default="{isofile stem}.xml">
+  Created in working directory if `-s` not specified
+</ParamField>
+
+<ParamField path="Audio codec" type="string" default="wave">
+  RIFF WAVE format for maximum compatibility
+</ParamField>
+
+<ParamField path="Audio pregap" type="integer" default="150">
+  Standard 2-second pregap (150 sectors)
+</ParamField>
+
+<ParamField path="Postgap" type="integer" default="150">
+  Data track postgap before first audio track
+</ParamField>
+
+## Compatibility
+
+dumpsxiso supports:
+
+- PlayStation 1 CD-ROM XA discs
+- PlayStation 2 discs (detected automatically)
+- Multi-disc games (each disc must be extracted separately)
+- Multi-bin images via CUE files
+- Mixed mode discs (data + audio tracks)
+- Obfuscated file systems (with `-pt` and `-f`)

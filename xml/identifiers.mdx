@@ -1,0 +1,223 @@
+---
+title: Identifiers Element
+description: Configure volume, system, and application identifiers for PlayStation ISO images
+---
+
+The `<identifiers>` element defines metadata strings that appear in the ISO 9660 volume descriptor. These identifiers are crucial for PlayStation bootability and disc identification.
+
+## Basic Usage
+
+```xml
+<identifiers
+  system="PLAYSTATION"
+  application="PLAYSTATION"
+  volume="MYDISC"
+  volume_set="MYDISC"
+  publisher="ME"
+  data_preparer="MKPSXISO"
+  copyright="COPYLEFT"
+/>
+```
+
+## Required Identifiers (for bootable discs)
+
+<ParamField path="system" type="string" default="PLAYSTATION">
+  The system identifier. **Must be `PLAYSTATION` for the ISO to boot on PlayStation hardware**. If not specified, defaults to `PLAYSTATION`
+</ParamField>
+
+<ParamField path="application" type="string" default="PLAYSTATION">
+  The application identifier. **Must be `PLAYSTATION` for the ISO to boot on PlayStation hardware**. If not specified, defaults to `PLAYSTATION`
+</ParamField>
+
+<Warning>
+  For a bootable PlayStation ISO, both `system` and `application` must be set to `PLAYSTATION`. To intentionally keep them blank, specify empty strings.
+</Warning>
+
+## Optional Identifiers
+
+<ParamField path="volume" type="string">
+  The volume identifier. This is the disc name that appears when browsing the disc. Maximum 32 characters
+</ParamField>
+
+<ParamField path="volume_set" type="string">
+  The volume set identifier. Used for multi-disc sets to identify the collection. Maximum 128 characters
+</ParamField>
+
+<ParamField path="publisher" type="string">
+  The publisher identifier. Maximum 128 characters
+</ParamField>
+
+<ParamField path="data_preparer" type="string">
+  The data preparer identifier. Typically set to the tool name (e.g., `MKPSXISO`). Maximum 128 characters
+</ParamField>
+
+<ParamField path="copyright" type="string">
+  The copyright descriptor. Maximum 37 characters
+</ParamField>
+
+## Date Attributes
+
+<Accordion title="Advanced: Creation and Modification Dates">
+
+<ParamField path="creation_date" type="string">
+  ISO 9660 creation date in the format `YYYYMMDDHHMMSSmmG` where:
+  - `YYYY` = 4-digit year
+  - `MM` = 2-digit month (01-12)
+  - `DD` = 2-digit day (01-31)
+  - `HH` = 2-digit hour (00-23)
+  - `MM` = 2-digit minute (00-59)
+  - `SS` = 2-digit second (00-59)
+  - `mm` = 2-digit centisecond (00-99)
+  - `G` = GMT offset in 15-minute intervals (signed)
+  
+  If not specified, uses the current system time
+</ParamField>
+
+<ParamField path="modification_date" type="string">
+  ISO 9660 modification date in the same format as `creation_date`
+</ParamField>
+
+Example with date:
+```xml
+<identifiers
+  system="PLAYSTATION"
+  application="PLAYSTATION"
+  volume="MYGAME"
+  creation_date="1999120115300000+0"
+/>
+```
+
+</Accordion>
+
+## External Identifier File
+
+<Accordion title="Using an External Identifier File">
+
+You can reference an external XML file containing identifier definitions:
+
+<ParamField path="id_file" type="string">
+  Path to an external XML file containing identifier definitions. Values in the external file will override inline attributes
+</ParamField>
+
+Example:
+```xml
+<!-- In your main project XML -->
+<identifiers id_file="identifiers.xml" volume="OVERRIDE"/>
+```
+
+```xml
+<!-- identifiers.xml -->
+<?xml version="1.0" encoding="UTF-8"?>
+<identifiers
+  system="PLAYSTATION"
+  application="PLAYSTATION"
+  volume="FROMFILE"
+  publisher="PUBLISHER_NAME"
+  data_preparer="MKPSXISO"
+/>
+```
+
+In this example, the final volume ID will be `FROMFILE` (from the external file), and `OVERRIDE` will be ignored.
+
+</Accordion>
+
+## Character Restrictions
+
+ISO 9660 identifiers are automatically converted to uppercase and have character restrictions:
+
+- Most identifiers accept A-Z, 0-9, and underscore
+- Special characters are not permitted
+- Maximum lengths vary by field (see parameter descriptions)
+
+## Examples
+
+### Minimal Configuration
+
+```xml
+<!-- Defaults are applied automatically -->
+<identifiers volume="MYGAME"/>
+```
+
+This results in:
+- `system`: `PLAYSTATION` (default)
+- `application`: `PLAYSTATION` (default)
+- `volume`: `MYGAME`
+
+### Full Configuration
+
+```xml
+<identifiers
+  system="PLAYSTATION"
+  application="PLAYSTATION"
+  volume="AWESOME_GAME"
+  volume_set="AWESOME_GAME_TRILOGY"
+  publisher="AWESOME_PUBLISHER"
+  data_preparer="MKPSXISO"
+  copyright="COPYRIGHT_2026"
+/>
+```
+
+### Multi-Disc Game
+
+For a multi-disc game, use consistent identifiers across discs:
+
+<CodeGroup>
+
+```xml Disc 1
+<iso_project image_name="game_disc1.bin" cue_sheet="game_disc1.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAME_DISC1"
+      volume_set="GAME_SERIES"
+      publisher="MYPUBLISHER"
+    />
+    <!-- ... -->
+  </track>
+</iso_project>
+```
+
+```xml Disc 2
+<iso_project image_name="game_disc2.bin" cue_sheet="game_disc2.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAME_DISC2"
+      volume_set="GAME_SERIES"
+      publisher="MYPUBLISHER"
+    />
+    <!-- ... -->
+  </track>
+</iso_project>
+```
+
+</CodeGroup>
+
+## Blank Identifiers
+
+To intentionally use blank system or application identifiers (creating a non-bootable disc):
+
+```xml
+<identifiers
+  system=""
+  application=""
+  volume="DATA_DISC"
+/>
+```
+
+<Note>
+  Blank system and application identifiers will prevent the disc from booting on PlayStation hardware.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Directory Tree" icon="folder-tree" href="/xml/directory-tree">
+    Define the file system structure
+  </Card>
+  <Card title="File Elements" icon="file" href="/xml/file-elements">
+    Add files to your ISO
+  </Card>
+</CardGroup>

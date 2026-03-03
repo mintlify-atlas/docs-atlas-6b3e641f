@@ -1,0 +1,187 @@
+---
+title: ISO 9660 Standard Compliance
+description: How mkpsxiso implements and complies with the ISO 9660 filesystem standard for PlayStation CD images
+---
+
+mkpsxiso creates CD images that comply with the ISO 9660 standard, specifically tailored for PlayStation CD-ROM requirements. This page explains the standard compliance details and PlayStation-specific implementations.
+
+## ISO 9660 Overview
+
+mkpsxiso outputs disc images that conform to the older ISO 9660 standard without Joliet extensions:
+
+- Creates filesystem structures compatible with PlayStation BIOS
+- Supports standard `.bin` and `.cue` or `.iso` formats
+- Can be used as a regular ISO creation tool for ISO 9660 images
+- Maintains compatibility with modern CD burning tools and emulators
+
+## Standard Compliance Features
+
+### Path Table Generation
+
+As of Version 1.19, path table generation logic was significantly reworked:
+
+- Previous implementations were flawed and caused issues with games and operating systems utilizing the path table
+- Current implementation ensures true ISO 9660 compliance
+- Path tables are properly structured for both little-endian and big-endian formats
+- Supports dummy entries in path tables (Version 2.10+)
+
+### Directory Records
+
+**Proper Directory Record Handling:**
+
+- Directory records spanning more than one sector are properly supported (fixed in Version 2.00)
+- Record lengths are calculated correctly in sector multiples
+- Directory entries are sorted before LBA tree calculation (Version 2.10)
+- Directory records written using linear write instead of recursive write
+- Descriptor directories written using Breadth-First Search instead of Depth-First Search
+
+**Version 1.15 Improvements:**
+
+- Directory record lengths now calculate in sector multiples instead of actual bytes
+- Makes ISO images fully ISO 9660 compliant
+- Eliminates errors from ISO tools that previously rejected mkpsxiso-generated images
+
+### File and Path Limits
+
+**ISO 9660 Standard Limits (enforced in Version 2.20):**
+
+- Path length and depth limited to follow ISO 9660 standards
+- Character limit increased from 12 to 31 for homebrew development
+- Lowercase characters allowed in ISO descriptor for homebrew
+- Non-standard root attributes permitted for homebrew projects
+
+### Volume Descriptor
+
+**Proper descriptor generation includes:**
+
+- Date stamp set in root directory record
+- Correct volume size calculation
+- System identifier defaults to "PLAYSTATION" when blank
+- Application identifier defaults to "PLAYSTATION" when blank
+- Optional copyright identifier support
+- Descriptor submode generated correctly for games built with Sony's mastering tools (2003+)
+
+## PlayStation-Specific Extensions
+
+### CD-XA (eXtended Architecture)
+
+mkpsxiso extends ISO 9660 with CD-XA attributes required for PlayStation:
+
+- XA attribute headers properly encoded
+- Supports CD-XA stream files (audio and video)
+- Can disable CD-XA attributes with `-noxa` option for plain ISO 9660
+- XA attributes preserved during dump and rebuild operations
+
+### Sector Formatting
+
+**Mode 2 Support:**
+
+- Mode 2 Form 1: Data sectors with EDC/ECC
+- Mode 2 Form 2: XA audio/video sectors without EDC/ECC
+- Proper EDC generation for all file types
+- EDC Form 2 integrity maintenance via `xa_edc` attribute
+- ECC and timestamp bug fixes (Version 2.00)
+
+### File Ordering and LBA Control
+
+Unlike standard ISO creation tools, mkpsxiso allows precise control over file placement:
+
+- File LBA controlled by order in XML document
+- Enables seek optimization for faster loading
+- Maintains exact LBA addresses for 1:1 rebuilds
+- Supports dummy sectors to preserve original LBA layout
+
+```xml
+<!-- Files are placed in the order specified -->
+<file name="LOAD1.DAT" source="data/load_first.dat"/>
+<dummy sectors="16"/>  <!-- Preserve gap -->
+<file name="LOAD2.DAT" source="data/load_second.dat"/>
+```
+
+## Sony Mastering Tool Compatibility
+
+### Games Built with Newer Sony Tools (2003+)
+
+Version 2.10 added support for games built with Sony's newer mastering tools:
+
+- Correct descriptor submode generation via `new_type` XML attribute
+- Proper descriptor year handling
+- Custom file ordering logic via `order` XML attribute (Version 2.20)
+- Directory record sorting to match original disc layout
+
+### PS2 CD-ROM Games
+
+Version 2.20 added support for PlayStation 2 CD-ROM games:
+
+- Regenerate correct submode via `ps2` XML attribute
+- Maintains compatibility with PS2 BIOS requirements
+
+## Timestamp Handling
+
+**Cross-Platform Timestamp Support:**
+
+- Files extracted/built with original timestamps (Version 2.10+)
+- No offset calculations needed - direct timestamp preservation
+- Support for timestamps prior to 1970 on Windows (Version 2.10)
+- Date handling uses native Windows APIs (Version 2.20)
+
+<Warning>
+  On `ext4` and `xfs` filesystems, the minimum timestamp is 1901/12/13. Games with older file dates (Crash Bash, Spyro 3, Vagrant Story) cannot be rebuilt 1:1 on these filesystems. Use `f2fs`, `ntfs`, or `btrfs` for better date support.
+</Warning>
+
+## License Data Injection
+
+mkpsxiso can properly inject Sony license data into the image:
+
+- Eliminates need for separate licensing tools
+- License data placed in correct sectors
+- Must supply your own license data from PsyQ SDK
+- dumpsxiso can extract license data from existing discs
+- License file can be referenced separately via `id_file` attribute
+
+```xml
+<identifier>
+  <license_file>licensdata.dat</license_file>
+</identifier>
+```
+
+Or load from external file:
+
+```xml
+<identifier id_file="license.xml"/>
+```
+
+## Output Formats
+
+mkpsxiso supports multiple output formats:
+
+### BIN/CUE Format
+
+- Binary disc image with cue sheet
+- Supports multiple tracks (data + CD audio)
+- Cue sheet filename customizable via `-c` or `--cuefile` argument
+- Path stripped from .bin file specification in cue sheets (Version 1.27)
+
+### ISO Format
+
+- Single file ISO image
+- Compatible with emulators and disc tools
+- Limited to single data track (no CD audio tracks)
+
+## Validation and Compatibility
+
+**Image Verification:**
+
+- Almost all images can be rebuilt 1:1 (Version 2.00+)
+- XML generation in strict LBA order or sorted by directory
+- Timestamps and XA attributes preserved
+- ISO descriptor check in dumpsxiso (Version 2.02)
+- Detection of problematic ISOs with little-endian attributes (Version 2.20)
+
+**Known Compatibility Issues:**
+
+<Warning>
+  On Windows, certain directory structures with many identically-named subdirectories may not browse correctly. The issue persists with BuildCD-generated images, suggesting it's an OS bug rather than a mkpsxiso issue. Test your generated images before release.
+</Warning>
+
+See the [Troubleshooting](/reference/troubleshooting) page for more details on known issues.

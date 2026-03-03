@@ -1,0 +1,280 @@
+---
+title: File Elements
+description: Add files to your ISO with support for data, XA audio, STR video, and CD-DA references
+---
+
+The `<file>` element adds individual files to the ISO file system. mkpsxiso supports various file types including standard data files, XA audio, STR video, and CD-DA track references.
+
+## Basic File Entry
+
+```xml
+<file name="system.cnf" source="config/system.txt"/>
+```
+
+## Required Attributes
+
+At least one of these attributes must be specified:
+
+<ParamField path="name" type="string">
+  The file name as it appears in the ISO. If omitted, the source file's name is used. Must follow ISO 9660 naming rules
+</ParamField>
+
+<ParamField path="source" type="string">
+  Path to the source file. If omitted, the file name is used as the source (must be in the current directory or `srcdir`)
+</ParamField>
+
+<Info>
+  You can specify both, only `name`, or only `source`. If both are omitted, an error occurs.
+</Info>
+
+### Naming Behavior
+
+```xml
+<!-- Both specified: use system.cnf in ISO, read from config/system.txt -->
+<file name="system.cnf" source="config/system.txt"/>
+
+<!-- Only name: read from myfile.dat, use myfile.dat in ISO -->
+<file name="myfile.dat"/>
+
+<!-- Only source: read from data/level.dat, use level.dat in ISO -->
+<file source="data/level.dat"/>
+```
+
+## File Types
+
+<ParamField path="type" type="string" default="data">
+  The file type determines how the file is encoded in the ISO:
+  - `data`: Standard data file (default)
+  - `mixed`, `xa`, `str`: Mixed mode files (2336 bytes/sector)
+  - `da`: CD-DA audio track reference
+</ParamField>
+
+### Data Files (type="data")
+
+Standard files stored as Mode 2 Form 1 sectors:
+
+```xml
+<file name="game.exe" type="data" source="build/game.exe"/>
+<file name="level1.dat" source="levels/level1.dat"/>
+```
+
+Data files are the default type, so `type="data"` can be omitted.
+
+### Mixed Mode Files (type="mixed", "xa", or "str")
+
+Mixed mode files contain 2336 bytes per sector where each sector is marked as either Mode 2 Form 1 or Mode 2 Form 2. mkpsxiso reads the sub-header to properly encode each sector.
+
+<CodeGroup>
+
+```xml XA Audio
+<!-- XA-ADPCM audio files (all sectors are Form 2) -->
+<file name="bgm01.xa" type="xa" source="audio/bgm01.xa"/>
+<file name="voice.xa" type="mixed" source="audio/voice.xa"/>
+```
+
+```xml STR Video
+<!-- STR videos: MDEC/Data + XA interleaved (mixed Form 1 and Form 2) -->
+<file name="intro.str" type="str" source="videos/intro.str"/>
+<file name="cutscene.str" type="mixed" source="videos/cutscene.str"/>
+```
+
+</CodeGroup>
+
+<Note>
+  `xa` and `str` are aliases for `mixed`. All three type values work identically.
+</Note>
+
+#### XA/STR File Validation
+
+When using XA/STR files, mkpsxiso validates:
+
+1. The file is not a WAV/RIFF container
+2. The file size is a multiple of 2336 bytes (or 2048 bytes for data-only STR)
+
+If the file is 2048 bytes per sector, it's treated as a data-only STR stream (Mode 2 Form 1).
+
+### DA Files (type="da")
+
+DA files are references to CD-DA audio tracks. They don't contain audio data themselves but link to audio tracks defined elsewhere in the project.
+
+```xml
+<file name="track02.da" trackid="02" type="da"/>
+```
+
+<ParamField path="trackid" type="string" required>
+  For DA files only. References the audio track with the matching `trackid` attribute. The track must be defined in the `<iso_project>` with `type="audio"` and the same `trackid`
+</ParamField>
+
+<Warning>
+  DA files should be placed at the end of the directory tree (after all regular files and dummy sectors) to avoid corrupting the ISO image.
+</Warning>
+
+See [Audio Tracks](/xml/audio-tracks) for complete DA file documentation.
+
+## Optional Attributes
+
+### File Visibility
+
+<ParamField path="hidden" type="number" default="0">
+  Controls file visibility:
+  - `0`: Not hidden (default)
+  - `1`: Hidden (file exists but marked as hidden)
+  - `2`: Obfuscated (not added to Directory Record)
+  - `3`: Obfuscated and hidden
+</ParamField>
+
+```xml
+<!-- Hidden debug file -->
+<file name="debug.log" source="debug.log" hidden="1"/>
+
+<!-- Completely obfuscated file -->
+<file name="secret.dat" source="secret.dat" hidden="2"/>
+```
+
+### Directory Order
+
+<ParamField path="order" type="number" default="0">
+  Custom directory record order for images with `new_type="true"` in the track element. Files with negative order appear first, followed by unordered files (0), then positive order files. This doesn't modify the LBA address
+</ParamField>
+
+```xml
+<track type="data" new_type="true">
+  <directory_tree>
+    <!-- Loads first -->
+    <file name="boot.dat" source="boot.dat" order="-10"/>
+    
+    <!-- Normal order -->
+    <file name="game.exe" source="game.exe"/>
+    
+    <!-- Loads last -->
+    <file name="credits.dat" source="credits.dat" order="10"/>
+  </directory_tree>
+</track>
+```
+
+## ISO 9660 Naming Rules
+
+File names must follow ISO 9660 Level 1 restrictions:
+
+- Only uppercase letters (A-Z), digits (0-9), and underscores (_)
+- Exactly one dot (.) separator
+- Maximum length: 31 characters (12 recommended)
+- Format: `NAME.EXT` (e.g., `GAME.EXE`, `LEVEL_01.DAT`)
+
+<Warning>
+  mkpsxiso automatically converts lowercase letters to uppercase and validates the file name format. Invalid characters will cause an error.
+</Warning>
+
+### Valid File Names
+
+```xml
+<file name="GAME.EXE" source="game.exe"/>
+<file name="LEVEL_01.DAT" source="level1.dat"/>
+<file name="BGM_TITLE.XA" source="bgm_title.xa"/>
+```
+
+### Invalid File Names
+
+```xml
+<!-- Multiple dots -->
+<file name="my.file.dat" source="file.dat"/> <!-- ERROR -->
+
+<!-- Special characters -->
+<file name="level-1.dat" source="level1.dat"/> <!-- ERROR -->
+<file name="file@2.dat" source="file2.dat"/> <!-- ERROR -->
+
+<!-- Too long -->
+<file name="VERYLONGFILENAMETHATEXCEEDS31CHARS.DAT" source="file.dat"/> <!-- ERROR -->
+```
+
+## Advanced Attributes
+
+<Accordion title="XA Extended Attributes">
+
+For CD-XA extended attributes (advanced users):
+
+<ParamField path="xa_attrib" type="number">
+  XA file attributes byte. For XA/STR files, defaults to the first byte of the file or 0x38 if 0xFF
+</ParamField>
+
+<ParamField path="xa_perm" type="number">
+  XA permission flags
+</ParamField>
+
+<ParamField path="xa_gid" type="number">
+  XA group ID
+</ParamField>
+
+<ParamField path="xa_uid" type="number">
+  XA user ID
+</ParamField>
+
+<ParamField path="gmt_offs" type="number">
+  GMT offset for the file's timestamp in 15-minute intervals
+</ParamField>
+
+<ParamField path="offs" type="number">
+  Force the file to start at a specific LBA (Logical Block Address). Use with caution as this can cause file overlap issues
+</ParamField>
+
+Example:
+```xml
+<file name="special.xa" type="xa" source="special.xa" 
+      xa_attrib="0x38" xa_perm="0x555" offs="1000"/>
+```
+
+</Accordion>
+
+## Complete Examples
+
+### Standard Game Files
+
+```xml
+<directory_tree>
+  <!-- Boot files -->
+  <file name="SYSTEM.CNF" source="config/system.txt"/>
+  <file name="GAME.EXE" source="build/game.exe"/>
+  
+  <!-- Data files -->
+  <file name="LEVEL_01.DAT" source="data/level01.dat"/>
+  <file name="LEVEL_02.DAT" source="data/level02.dat"/>
+  <file name="ENEMIES.DAT" source="data/enemies.dat"/>
+</directory_tree>
+```
+
+### Mixed Media Types
+
+```xml
+<directory_tree>
+  <file name="SYSTEM.CNF" source="system.txt"/>
+  <file name="GAME.EXE" source="game.exe"/>
+  
+  <dir name="STREAMS">
+    <!-- XA audio -->
+    <file name="BGM_01.XA" type="xa" source="audio/bgm01.xa"/>
+    <file name="VOICE_01.XA" type="xa" source="audio/voice01.xa"/>
+    
+    <!-- STR video -->
+    <file name="INTRO.STR" type="str" source="video/intro.str"/>
+    <file name="ENDING.STR" type="str" source="video/ending.str"/>
+  </dir>
+  
+  <!-- Dummy sectors before DA files -->
+  <dummy sectors="1024"/>
+  
+  <!-- CD-DA track references -->
+  <file name="TRACK02.DA" trackid="02" type="da"/>
+  <file name="TRACK03.DA" trackid="03" type="da"/>
+</directory_tree>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Directory Tree" icon="folder-tree" href="/xml/directory-tree">
+    Organize files in directories
+  </Card>
+  <Card title="Audio Tracks" icon="music" href="/xml/audio-tracks">
+    Link DA files to audio tracks
+  </Card>
+</CardGroup>

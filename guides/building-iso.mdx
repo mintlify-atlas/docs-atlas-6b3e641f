@@ -1,0 +1,240 @@
+---
+title: Building PlayStation ISO Images
+description: Step-by-step guide to building PlayStation CD images using mkpsxiso with XML configuration
+---
+
+mkpsxiso builds PlayStation CD images from XML documents, providing precise control over file placement and supporting mixed-mode CD formats.
+
+## Prerequisites
+
+Before building an ISO, ensure you have:
+
+- mkpsxiso installed on your system
+- Source files organized in a directory structure
+- A license data file from the PsyQ SDK (optional but required for bootable discs)
+- Basic understanding of XML syntax
+
+## Basic ISO Building Workflow
+
+<Steps>
+
+<Step title="Create XML Project File">
+
+Create an XML file (e.g., `myproject.xml`) that defines your ISO structure. Start with the basic project declaration:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<iso_project image_name="myimage.bin" cue_sheet="myimage.cue">
+  <!-- Project contents go here -->
+</iso_project>
+```
+
+The `image_name` attribute specifies the output filename, and `cue_sheet` defines the cue sheet file (required if using CD audio tracks).
+
+</Step>
+
+<Step title="Define the Data Track">
+
+Add a data track element with system identifiers:
+
+```xml
+<track type="data">
+  <identifiers
+    system="PLAYSTATION"
+    application="PLAYSTATION"
+    volume="MYDISC"
+    volume_set="MYDISC"
+    publisher="YOUR_NAME"
+    data_preparer="MKPSXISO"
+  />
+  
+  <!-- Directory tree goes here -->
+</track>
+```
+
+<Note>
+The system and application identifiers must be set to "PLAYSTATION" for the disc to be bootable on actual PlayStation hardware.
+</Note>
+
+</Step>
+
+<Step title="Add License Data">
+
+Include the PlayStation license file to make your disc bootable:
+
+```xml
+<license file="licensea.dat"/>
+```
+
+<Warning>
+License data is not included with mkpsxiso. You must obtain it from the PsyQ SDK (found in PS/CDGEN/LCNSFILE). Without proper licensing, your disc will not boot on real hardware.
+</Warning>
+
+</Step>
+
+<Step title="Build Directory Structure">
+
+Define your file system within the `<directory_tree>` element:
+
+```xml
+<directory_tree>
+  <!-- Root files -->
+  <file name="system.cnf" type="data" source="system.txt"/>
+  <file name="myexec.exe" type="data" source="myexec.exe"/>
+  
+  <!-- Subdirectories -->
+  <dir name="data">
+    <file name="stage1.dat" type="data" source="stage1.dat"/>
+    <file name="stage2.dat" type="data" source="stage2.dat"/>
+  </dir>
+</directory_tree>
+```
+
+<Tip>
+File order in the XML determines the physical location (LBA) on the disc. Place frequently accessed files early for faster loading times.
+</Tip>
+
+</Step>
+
+<Step title="Build the ISO Image">
+
+Run mkpsxiso with your XML file:
+
+```bash
+mkpsxiso myproject.xml
+```
+
+The tool will create the `.bin` and `.cue` files as specified in your XML configuration.
+
+</Step>
+
+<Step title="Verify the Build">
+
+Check the console output for any errors or warnings. mkpsxiso will report:
+
+- Files processed and their LBA addresses
+- Total image size
+- Any validation warnings
+
+You can generate a detailed LBA log with:
+
+```bash
+mkpsxiso myproject.xml -lba logfile.txt
+```
+
+This creates a sorted log of all files with their LBA addresses, sizes, and timecodes.
+
+</Step>
+
+</Steps>
+
+## Advanced Options
+
+### Specifying Output Files
+
+Override the output filename via command line:
+
+```bash
+mkpsxiso myproject.xml -o custom_name.bin
+```
+
+### Overriding Volume Label
+
+Change the volume identifier without editing XML:
+
+```bash
+mkpsxiso myproject.xml -l "NEWLABEL"
+```
+
+### Custom Cue Sheet Name
+
+Specify a different cue sheet filename:
+
+```bash
+mkpsxiso myproject.xml -c custom.cue
+```
+
+### Generate XML Without Building
+
+Create LBA listings without generating the ISO:
+
+```bash
+mkpsxiso myproject.xml -noisogen -lba output.txt
+```
+
+### Suppress Warnings
+
+Build with warnings suppressed:
+
+```bash
+mkpsxiso myproject.xml --warns
+```
+
+## File Attributes
+
+### Source and Name Attributes
+
+You can specify files in multiple ways:
+
+```xml
+<!-- Both name and source -->
+<file name="output.dat" source="input.dat"/>
+
+<!-- Name only (uses name as source filename) -->
+<file name="data.bin"/>
+
+<!-- Source only (strips path for output name) -->
+<file source="path/to/file.dat"/>
+```
+
+### Using Source Directories
+
+Simplify paths with the `srcdir` attribute:
+
+```xml
+<dir name="graphics" srcdir="assets/gfx">
+  <!-- These files are loaded from assets/gfx/ -->
+  <file name="logo.tim"/>
+  <file name="sprites.tim"/>
+</dir>
+```
+
+## Common Issues
+
+### Missing License File
+
+If you see invalid sector warnings, ensure your license file path is correct and the file is in raw 2336 byte sector format.
+
+### File Order Matters
+
+The physical order of files on disc matches their order in the XML. Optimize loading by placing level data before the first level loads.
+
+### Path Length Limitations
+
+ISO 9660 has strict path length and depth limits. Keep directory structures shallow and filenames short for maximum compatibility.
+
+<Note>
+For homebrew development, mkpsxiso allows up to 31 characters for filenames (increased from the standard 12) and permits lowercase in ISO descriptors.
+</Note>
+
+## Output Formats
+
+mkpsxiso generates:
+
+- `.bin` file: The raw CD image data
+- `.cue` file: Cue sheet describing track layout (if multiple tracks exist)
+
+Both formats are compatible with:
+- CD burning software
+- PlayStation emulators (ePSXe, DuckStation, PCSX, etc.)
+- Modern disc imaging tools
+
+## Next Steps
+
+Now that you understand basic ISO building:
+
+- Learn about [XA Audio](/guides/xa-audio) for compressed audio streaming
+- Add [STR Video](/guides/str-video) files for FMV sequences
+- Include [CDDA Audio](/guides/cdda-audio) tracks for CD audio
+- Optimize [LBA placement](/guides/lba-optimization) for faster loading

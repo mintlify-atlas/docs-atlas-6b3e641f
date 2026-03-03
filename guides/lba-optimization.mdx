@@ -1,0 +1,572 @@
+---
+title: LBA Optimization for PlayStation ISOs
+description: Optimize file placement and access times by controlling LBA addresses in your PlayStation disc images
+---
+
+LBA (Logical Block Address) optimization is crucial for PlayStation game performance. By controlling the physical location of files on disc, you can minimize seek times and improve loading speeds.
+
+## Understanding LBA
+
+### What is LBA?
+
+LBA (Logical Block Address) is:
+
+- The physical sector number on the CD
+- A sequential address starting at 0
+- The actual position data is written on the disc
+- Critical for CD drive seek performance
+
+### Why LBA Matters
+
+CD drive characteristics:
+
+- **Seek time**: 100-500ms depending on distance
+- **Read speed**: ~150-300 KB/s (1x-2x)
+- **Rotational delay**: Varies with position
+- **Access pattern**: Sequential reads are fastest
+
+Optimizing LBA placement can reduce loading times by 50% or more.
+
+## How mkpsxiso Handles LBA
+
+mkpsxiso provides precise LBA control:
+
+- **File order = LBA order**: Files are written in XML order
+- **No automatic sorting**: Unlike mkisofs, order is explicit
+- **Manual optimization**: You control placement
+- **Predictable layout**: Same XML produces same LBA layout
+
+<Tip>
+This is mkpsxiso's key advantage over generic ISO tools. You have complete control over file placement for optimal loading performance.
+</Tip>
+
+## Basic Optimization Strategy
+
+<Steps>
+
+<Step title="Identify Access Patterns">
+
+Analyze how your game loads files:
+
+- **Boot files**: Loaded first (system.cnf, executable)
+- **Menu data**: Loaded during menu screens
+- **Level data**: Loaded when entering levels
+- **Streaming media**: Played during gameplay
+
+Document which files are accessed together.
+
+</Step>
+
+<Step title="Group Related Files">
+
+Place files that load together near each other:
+
+```xml
+<directory_tree>
+  <!-- Boot files at start -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Level 1 data grouped together -->
+  <dir name="level1">
+    <file name="level1.dat" source="levels/level1.dat"/>
+    <file name="level1.geo" source="levels/level1.geo"/>
+    <file name="level1.tex" source="levels/level1.tex"/>
+    <file name="level1.xa" type="xa" source="audio/level1.xa"/>
+  </dir>
+  
+  <!-- Level 2 data grouped together -->
+  <dir name="level2">
+    <file name="level2.dat" source="levels/level2.dat"/>
+    <file name="level2.geo" source="levels/level2.geo"/>
+    <file name="level2.tex" source="levels/level2.tex"/>
+    <file name="level2.xa" type="xa" source="audio/level2.xa"/>
+  </dir>
+</directory_tree>
+```
+
+</Step>
+
+<Step title="Prioritize Frequently Accessed Files">
+
+Place high-priority files early:
+
+```xml
+<directory_tree>
+  <!-- Critical boot files -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Shared resources used everywhere -->
+  <dir name="common">
+    <file name="font.tim" source="common/font.tim"/>
+    <file name="ui.dat" source="common/ui.dat"/>
+  </dir>
+  
+  <!-- Less critical data later -->
+  <dir name="levels">
+    <!-- ... -->
+  </dir>
+</directory_tree>
+```
+
+</Step>
+
+<Step title="Generate LBA Log">
+
+Create a detailed LBA map:
+
+```bash
+mkpsxiso myproject.xml -lba output.log
+```
+
+Review the log to verify file placement.
+
+</Step>
+
+<Step title="Measure and Iterate">
+
+Test loading times:
+
+1. Build ISO with current layout
+2. Measure loading times in game
+3. Adjust file order based on results
+4. Rebuild and test again
+
+</Step>
+
+</Steps>
+
+## LBA Logging
+
+### Generating LBA Logs
+
+Create a text log:
+
+```bash
+mkpsxiso myproject.xml -lba logfile.txt
+```
+
+Or generate a C header file:
+
+```bash
+mkpsxiso myproject.xml -lbahead logfile.h
+```
+
+### Log Format
+
+The LBA log contains:
+
+```
+File: system.cnf
+  LBA: 24
+  Size: 2048 bytes (1 sectors)
+  Timecode: 00:00:24
+
+File: game.exe
+  LBA: 25
+  Size: 524288 bytes (256 sectors)
+  Timecode: 00:00:25
+
+Directory: levels
+  LBA: 281
+
+File: levels/level1.dat
+  LBA: 282
+  Size: 1048576 bytes (512 sectors)
+  Timecode: 00:03:82
+```
+
+Information provided:
+
+- **LBA**: Sector address
+- **Size**: File size in bytes and sectors
+- **Timecode**: MM:SS:FF format for CD timecode
+- **Directory locations**: LBA of directory records
+
+<Note>
+As of version 2.20, mkpsxiso generates improved LBA logs that are sorted by LBA address rather than filename, making it easier to visualize disc layout.
+</Note>
+
+### Using LBA in Game Code
+
+Include the generated header:
+
+```c
+// logfile.h contains:
+#define LEVEL1_LBA 282
+#define LEVEL1_SIZE 512
+
+// Use in game code:
+CdlLOC loc;
+CdIntToPos(LEVEL1_LBA, &loc);
+CdControlF(CdlReadN, (u_char*)&loc);
+```
+
+This allows direct LBA access without filename lookups.
+
+<Tip>
+Direct LBA access is faster than filename-based access because it skips directory traversal. Use LBA logs to generate header files for performance-critical loading code.
+</Tip>
+
+### Log Without Building
+
+Generate logs without creating the ISO:
+
+```bash
+mkpsxiso myproject.xml -noisogen -lba output.txt
+```
+
+Useful for:
+
+- Quick layout analysis
+- Header file generation
+- Planning file placement
+- Documentation
+
+## Advanced Optimization Techniques
+
+### Strategic File Placement
+
+#### Inner vs Outer Tracks
+
+CD characteristics:
+
+- **Inner tracks (LBA 0-10000)**: Faster access, higher density
+- **Middle tracks (LBA 10000-200000)**: Standard performance
+- **Outer tracks (LBA 200000+)**: Slower access, lower density
+
+Place critical files toward the center:
+
+```xml
+<directory_tree>
+  <!-- Critical files at start (inner tracks) -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  <dir name="core">
+    <file name="engine.dat" source="core/engine.dat"/>
+    <file name="common.tim" source="core/common.tim"/>
+  </dir>
+  
+  <!-- Level data in middle -->
+  <dir name="levels">
+    <!-- ... -->
+  </dir>
+  
+  <!-- Optional content at end (outer tracks) -->
+  <dir name="bonus">
+    <file name="gallery.dat" source="bonus/gallery.dat"/>
+    <file name="extras.dat" source="bonus/extras.dat"/>
+  </dir>
+</directory_tree>
+```
+
+### Streaming Media Placement
+
+For XA audio and STR video:
+
+```xml
+<!-- Place streaming files adjacent to related content -->
+<directory_tree>
+  <dir name="stage1">
+    <!-- Load these together -->
+    <file name="stage1.dat" source="levels/stage1.dat"/>
+    <file name="stage1_bgm.xa" type="xa" source="audio/stage1.xa"/>
+    <file name="intro1.str" type="str" source="video/stage1_intro.str"/>
+  </dir>
+  
+  <dir name="stage2">
+    <file name="stage2.dat" source="levels/stage2.dat"/>
+    <file name="stage2_bgm.xa" type="xa" source="audio/stage2.xa"/>
+    <file name="intro2.str" type="str" source="video/stage2_intro.str"/>
+  </dir>
+</directory_tree>
+```
+
+<Tip>
+Place streaming media immediately after the data files that trigger them. This minimizes seek time when transitioning from loading to streaming.
+</Tip>
+
+### Dummy Sectors
+
+Use dummy sectors for strategic spacing:
+
+```xml
+<directory_tree>
+  <!-- Critical files -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- Add padding before streaming media -->
+  <dummy sectors="10"/>
+  
+  <!-- Streaming files -->
+  <file name="intro.str" type="str" source="video/intro.str"/>
+</directory_tree>
+```
+
+Use cases:
+
+- Align files to specific LBA addresses
+- Create gaps for drive runaway protection
+- Force specific sector boundaries
+
+<Warning>
+Large dummy files at the end of the file system can prevent drive runaway (damage from seeking past end of data), but excessive padding wastes disc space.
+</Warning>
+
+### Level Loading Optimization
+
+For games with multiple levels:
+
+```xml
+<directory_tree>
+  <!-- Shared resources first -->
+  <dir name="shared">
+    <file name="player.dat" source="shared/player.dat"/>
+    <file name="enemies.dat" source="shared/enemies.dat"/>
+    <file name="ui.dat" source="shared/ui.dat"/>
+  </dir>
+  
+  <!-- Levels in play order -->
+  <dir name="level1">
+    <file name="data.dat" source="levels/1/data.dat"/>
+    <file name="music.xa" type="xa" source="levels/1/music.xa"/>
+  </dir>
+  
+  <dir name="level2">
+    <file name="data.dat" source="levels/2/data.dat"/>
+    <file name="music.xa" type="xa" source="levels/2/music.xa"/>
+  </dir>
+  
+  <!-- Boss levels after normal levels -->
+  <dir name="boss1">
+    <file name="data.dat" source="boss/1/data.dat"/>
+    <file name="music.xa" type="xa" source="boss/1/music.xa"/>
+  </dir>
+</directory_tree>
+```
+
+Benefits:
+
+- Shared resources load once at startup
+- Levels arranged in sequence minimize seeking
+- Boss battles positioned after relevant stages
+
+## Directory Record Order
+
+### Standard Ordering
+
+By default, files are written in XML order:
+
+```xml
+<dir name="mydir">
+  <file name="file3.dat" source="file3.dat"/>  <!-- LBA 100 -->
+  <file name="file1.dat" source="file1.dat"/>  <!-- LBA 150 -->
+  <file name="file2.dat" source="file2.dat"/>  <!-- LBA 200 -->
+</dir>
+```
+
+Physical order matches XML order (file3, file1, file2).
+
+### Custom Directory Order
+
+For games built with newer Sony mastering tools (2003+):
+
+```xml
+<track type="data" new_type="true">
+  <directory_tree>
+    <dir name="mydir">
+      <file name="file1.dat" source="file1.dat" order="1"/>
+      <file name="file2.dat" source="file2.dat" order="2"/>
+      <file name="file3.dat" source="file3.dat" order="0"/>
+    </dir>
+  </directory_tree>
+</track>
+```
+
+The `order` attribute:
+
+- Controls directory record listing order
+- Does NOT change physical LBA
+- Affects how files appear in directory listings
+- Negative values sort before unordered files
+- Positive values sort after unordered files
+
+<Note>
+The `order` attribute only affects directory record sorting for games using `new_type="true"`. Physical file placement is still controlled by XML order.
+</Note>
+
+## CDDA Track Optimization
+
+### Track Placement
+
+Audio tracks are always after the data track:
+
+```xml
+<track type="data">
+  <!-- Data track LBA: 0 - 100000 -->
+</track>
+
+<!-- Audio tracks start after data -->
+<track type="audio" source="track02.wav"/>  <!-- LBA: 100000+ -->
+<track type="audio" source="track03.wav"/>  <!-- LBA: 150000+ -->
+```
+
+### DA File Impact
+
+DA files don't occupy physical space:
+
+```xml
+<directory_tree>
+  <!-- Physical files -->
+  <file name="game.exe" source="game.exe"/>  <!-- LBA: 25 -->
+  <file name="level1.dat" source="level1.dat"/>  <!-- LBA: 50 -->
+  
+  <!-- DA files are just links (no physical space) -->
+  <file name="track02.da" trackid="02" type="da"/>  <!-- No LBA -->
+  <file name="track03.da" trackid="03" type="da"/>  <!-- No LBA -->
+</directory_tree>
+```
+
+DA files must be last to avoid corruption, but don't affect data layout.
+
+## Measuring Performance
+
+### In-Game Timing
+
+Measure loading times in your game:
+
+```c
+// PlayStation SDK example
+int start_time = VSync(-1);
+load_level_data();
+int end_time = VSync(-1);
+int load_time_frames = end_time - start_time;
+printf("Load time: %d frames\n", load_time_frames);
+```
+
+### Emulator Analysis
+
+Many emulators show:
+
+- CD-ROM access count
+- Seek operation count
+- Read speed statistics
+- Access pattern visualization
+
+Use these tools to identify bottlenecks.
+
+### Real Hardware Testing
+
+Test on actual PlayStation hardware:
+
+- Console CD drives have variable performance
+- Aging drives are slower
+- Seek times vary by disc condition
+- Real hardware is the ultimate test
+
+<Tip>
+Test on both emulators and real hardware. Emulator timings may not match actual CD drive performance.
+</Tip>
+
+## Best Practices
+
+### General Principles
+
+1. **Group related files**: Files loaded together should be adjacent
+2. **Critical files first**: Boot and core files at start of disc
+3. **Sequential access**: Arrange files in load order
+4. **Minimize seeks**: Avoid jumping between distant LBAs
+5. **Test iteratively**: Measure, adjust, rebuild, repeat
+
+### File Organization
+
+```xml
+<!-- Optimal structure -->
+<directory_tree>
+  <!-- 1. Boot files (LBA ~24) -->
+  <file name="system.cnf" source="system.cnf"/>
+  <file name="game.exe" source="game.exe"/>
+  
+  <!-- 2. Shared/common resources -->
+  <dir name="common">
+    <file name="font.tim" source="common/font.tim"/>
+    <file name="ui.dat" source="common/ui.dat"/>
+  </dir>
+  
+  <!-- 3. Level data in play order -->
+  <dir name="level1">
+    <file name="level1.dat" source="levels/1.dat"/>
+    <file name="level1.xa" type="xa" source="audio/1.xa"/>
+  </dir>
+  
+  <dir name="level2">
+    <file name="level2.dat" source="levels/2.dat"/>
+    <file name="level2.xa" type="xa" source="audio/2.xa"/>
+  </dir>
+  
+  <!-- 4. Optional/bonus content -->
+  <dir name="bonus">
+    <file name="gallery.dat" source="bonus/gallery.dat"/>
+  </dir>
+  
+  <!-- 5. DA files last -->
+  <file name="track02.da" trackid="02" type="da"/>
+  
+  <!-- 6. End padding for drive protection -->
+  <dummy sectors="1024"/>
+</directory_tree>
+```
+
+## Common Pitfalls
+
+### Random File Order
+
+Avoid:
+
+```xml
+<!-- Bad: Random order -->
+<directory_tree>
+  <file name="level3.dat" source="level3.dat"/>
+  <file name="level1.dat" source="level1.dat"/>
+  <file name="menu.dat" source="menu.dat"/>
+  <file name="level2.dat" source="level2.dat"/>
+</directory_tree>
+```
+
+This causes excessive seeking when loading levels in sequence.
+
+### Separated Related Files
+
+Avoid:
+
+```xml
+<!-- Bad: Related files far apart -->
+<directory_tree>
+  <file name="level1.dat" source="level1.dat"/>  <!-- LBA 100 -->
+  <!-- Many other files -->
+  <file name="level2.dat" source="level2.dat"/>  <!-- LBA 5000 -->
+  <!-- More files -->
+  <file name="level1.xa" type="xa" source="audio/level1.xa"/>  <!-- LBA 10000 -->
+</directory_tree>
+```
+
+Loading level1 requires seeking from LBA 100 to 10000.
+
+### No Planning
+
+Simply adding files without strategy results in poor performance:
+
+- Boot times are slow
+- Level transitions have long loads
+- Streaming media stutters
+
+## Next Steps
+
+Optimize your disc layout:
+
+- Use [Building ISOs](/guides/building-iso) with optimized file order
+- Generate LBA logs for analysis
+- Place [XA Audio](/guides/xa-audio) and [STR Video](/guides/str-video) strategically
+- Test on real hardware for accurate performance measurement

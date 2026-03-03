@@ -1,0 +1,427 @@
+---
+title: Changelog
+description: Complete version history of mkpsxiso from Version 2.20 back to 1.00
+---
+
+Complete changelog for mkpsxiso and dumpsxiso, documenting all features, fixes, and improvements from the initial release to the current version.
+
+## Version 2.20 (24/12/2025)
+
+### mkpsxiso
+
+**New Features:**
+- Added support for calculating real address instead of zeroed one for last postgap sector of CD-DA games DATA tracks via `ecc_addr` XML string
+- Added support for regenerating correct submode for PS2 CD-ROM games via `ps2` XML string
+- Added `--warns` argument to suppress all warnings
+- Changed sort logic for 2003 games directory records to custom one via `order` XML string
+- Renamed XML string `h_flag` to `hidden` for better understanding and added obfuscation flags
+- Increased character limit from 12 to 31 for homebrew development
+- Allow lowercase in ISO descriptor for homebrew development
+- Allow non-standard root attributes
+- Limited length and depth of paths to follow ISO 9660 standards
+
+**Improvements:**
+- Unreferenced tracks now listed in `-lba` args
+- Better formatted `-lba` log, refactored and sorted by LBA instead of name
+- Fixed file name sorting to not take into account the `;1` chars
+- Updated help texts
+- Updated credits
+
+**Fixes:**
+- Fixed 0 byte files not having a whole sector allocated for them
+- Fixed regression with timestamps prior to 1970 on Linux
+- Fixed regression with MSVC debugging
+
+**Internal:**
+- Refactored date handling functions to use Windows APIs
+- Updated README compile instructions and added filesystem issues info
+- Added macOS CI build
+- cmake: Updated build presets and changed install path for Windows
+
+### dumpsxiso
+
+**New Features:**
+- Added `--force` argument to dump very obfuscated games like Chrono Cross, Xenogears
+- Added `--quiet` argument to suppress all but warnings and errors
+- Added `--noxml` argument which prevents creation of XML and license file
+- Added `--raw` argument to dump all files in raw format
+- Added descriptive error if directory can't be created
+- Added descriptive error if XML file can't be created
+- Added hack to detect problematic ISOs with attributes in little endian
+
+**Improvements:**
+- Restructured logic on how DA files are processed
+- Changed way DATA track postgap sector is calculated
+- Improved logic of `--path-table` command
+- Changed print statements to match mkpsxiso layout and updated error messages
+- Use 64KiB buffer size for better I/O
+
+**Fixes:**
+- Fixed some games STR/XA files being extracted as DATA when they are not
+- Fixed crash on images with corrupted directory records or with SUSP
+- Fixed reading of path table in cases where size was exactly 2048
+- Stripped `--lba` argument from `--path-table`
+
+## Version 2.10 (10/01/2024)
+
+### mkpsxiso
+
+**New Features:**
+- Added support to read/update timestamps prior to 1970 on Windows
+- Added ability to maintain EDC Form 2 integrity via `xa_edc` XML string for games without it
+- Added ability to maintain files and folders "hidden" via `h_flag` XML string
+- Now correctly generates descriptor's submode, year and file order for games built with newer (>=2003) Sony's mastering tool via `new_type` XML string
+
+**Improvements:**
+- Files now extracted/built with original timestamps instead of being offset and re-calculated
+- Dummy sectors now save subheader submode value in integer form via `type` XML string
+- Dir entries now sorted before calculation of LBA tree
+- Changed directory records write method to linear write instead of recursive write
+- Changed descriptor directories write from Depth-First Search to Breadth-First Search
+- `-lba` and `-lbahead` args now output default file if no path is given
+
+**Fixes:**
+- Prevented path arguments from parsing another argument instead of a path
+- Fixed calculation length of dir/file entries
+- Corrected timecodes with `-lba` argument
+- Corrected CD-DA sector calculation for `-lba` arguments
+- Other miscellaneous fixes
+
+### dumpsxiso
+
+**New Features:**
+- Now outputs by default an `.xml` file with name of input if no `-s` argument given (enables drag & drop on Windows)
+- If no output dir given with `-x` argument, extracts files into folder with same name as input file
+- `-pt` command now supports dummy entries
+
+**Improvements:**
+- Better compatibility with other CD authoring tools through direct timestamp handling
+
+## Version 2.04 (09/18/2023)
+
+### dumpsxiso
+
+**New Features:**
+- Added option to extract every known directory in path table by specifying `-pt`/`--path-table` to help with obfuscated file systems
+
+## Version 2.03 (04/05/2023)
+
+### General
+
+**Improvements:**
+- On platforms where `std::filesystem` unavailable, `ghc::filesystem` now used instead
+- Switched back to main `libflac`
+
+### mkpsxiso
+
+**Fixes:**
+- Resolved possible crash when building images with big files
+- Fixed ISO generation bug when building images with directories with many files
+- Removed legacy `-nolimit` command line option
+
+### dumpsxiso
+
+**New Features:**
+- Output Copyright field to XML
+
+## Version 2.02 (06/24/2022)
+
+### mkpsxiso
+
+**New Features:**
+- Added `-c|--cuefile` argument to specify cue sheet file name (overrides name in XML)
+- Added `-l|--label` argument to specify volume ID string (overrides volume ID in XML)
+- Added `id_file` attribute for `<identifier>` element to read identifiers from separate XML file
+- Output file derived from XML project file name if no output file specified by arguments or `image_name` attribute
+
+**Fixes:**
+- Fixed NOMINMAX redefinition warnings
+
+### dumpsxiso
+
+**New Features:**
+- Added ISO descriptor check
+
+## Version 2.01 (02/10/2022)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed invalid sectors generated when no license file specified
+- Fixed wide char string specifier for MinGW
+
+**Improvements:**
+- Added bunch of `fflush()` calls to ensure build messages output at all times
+- Improved help text
+
+## Version 2.00 (02/02/2022)
+
+### Major Changes
+
+**New Tools:**
+- Added `dumpsxiso`, the successor to `isodump`
+- Use `dumpsxiso` to unpack `.bin` ISOs and `mkpsxiso` to repack
+
+**Build System:**
+- Added tinyxml2 as submodule - manual installation no longer needed
+- Built binaries always statically linked
+
+### mkpsxiso
+
+**New Features:**
+- Add `<pregap>` element to `<track>` for specifying pregap
+- Add `<dummy>` element to specify non-file sectors for preserving LBA order
+- Add packing FLAC, PCM, and MP3 files as CDDA tracks/DA files in addition to WAV
+- Add memory mapped ISO writing to improve packing speed
+
+**Improvements:**
+- Make XML file paths relative to XML
+- Unify CDDA tracks and DA files to reflect reality that DA files are links to CDDA tracks by LBA
+
+**Fixes:**
+- Fix directory records spanning more than 1 sector
+- Fix ECC and timestamp bugs
+- Massive refactor and cleanup (see commits for details)
+
+### dumpsxiso
+
+**New Features:**
+- Can extract as WAV, FLAC, and PCM formats
+- Add group by directory/pretty XML writing
+- Attempts to be intelligent about guessing pregap
+- Almost all images can be rebuilt 1:1 now
+- XML generation by default in strict LBA order, but can sort by dir for pretty output
+- Timestamps and XA attributes preserved
+
+## Version 1.27 (10/25/2021)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed stringop overflow bug when temporarily clearing sector address bytes
+- Path now stripped for .bin file specification of cue sheets
+
+## Version 1.25 (12/30/2020)
+
+### mkpsxiso
+
+**Changes:**
+- Replaced `xa` and `str` modes with `mixed` mode (see example.xml for details)
+- `xa` and `str` modes now just aliases to new `mixed` mode for backwards compatibility
+
+## Version 1.24 (12/28/2020)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed EDC generation for STR files
+
+## Version 1.23 (12/20/2018)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed broken LBA and timecode calculation for audio tracks integrated as files
+- `iso::DirTreeClass::GetWavSize` now returns correct value from WAV file
+
+**Improvements:**
+- Updated build instructions (CodeBlocks replaced with Netbeans)
+
+## Version 1.22 (12/4/2018)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed issues with subheader detection logic (now warning instead of critical error)
+- Fixed bug where CD-DA length possibly 1 sector larger than it should be
+
+## Version 1.21 (7/8/2018)
+
+### mkpsxiso
+
+**New Features:**
+- Added `-noxa` option and `no_xa` XML attribute to disable CD-XA attribute creation (plain ISO9660)
+
+**Fixes:**
+- Corrected volume size calculation logic when DA audio files included
+- Fixed volume size value being 2 sectors larger than it should
+- Corrected LBA header file output (150 sector pregap offset not needed - libcd handles it)
+- Fixed path name being double appended when using `srcdir` attribute
+- Fixed quiet mode preventing `cue_sheet` attribute from being parsed
+
+**Improvements:**
+- Added RIFF header and XA/STR subheader checks to error on improperly ripped/encoded files
+- Improved data sector detection for STR type files (Mode2/Form1 + Mode2/Form2 interleaves)
+- Implemented proper EOL/EOF bits for subheaders at ends of descriptors and files
+
+**Bug Fixes:**
+- Fixed XML parser bug where name attribute used as source file name when source directory specified
+- Fixed major bug where directory record lengths always set at 2048 bytes even when spanning more than sector
+- Fixed incorrectly calculated record length in volume descriptor's root directory record
+
+**New Attributes:**
+- Added `copyright` XML attribute for identifiers element to specify copyright identifier
+
+## Version 1.20 (6/21/2018)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed ISO names being blank or garbage when compiled with Microsoft's compiler
+- Fixed incorrect file size calculated for STR and DA audio files
+- Replaced `tinyxml2::GetErrorLineNum()` with `tinyxml2::ErrorLineNum()` for latest tinyxml2 compatibility
+
+**Improvements:**
+- DA audio files now set with CD-Audio attribute making them appear as WAV files when opened
+- OS supporting attribute transparently converts to WAV container on read
+
+**Tools:**
+- Brought back mkisoxml (recompiled with latest GCC)
+
+## Version 1.19 (6/12/2018)
+
+### mkpsxiso
+
+**Major Changes:**
+- Path table generation logic significantly reworked
+- Previous implementation was flawed and caused issues with games/OSes utilizing path table
+- mkpsxiso now truly ISO9660 compliant
+
+**Improvements:**
+- Date stamp now set in root directory record in image descriptor
+
+**Fixes:**
+- Fixed specifying only source attribute for file element not behaving as intended
+- Fixed no error on missing CUE file when DA audio files found but no cue sheet specified
+
+## Version 1.18 (5/16/2018)
+
+### mkpsxiso
+
+**New Features:**
+- Added support for DA audio files (files mapping directly to CD Audio track)
+- Can now accept raw audio files for CD audio tracks (assumes non-WAV files as raw audio)
+
+**Improvements:**
+- XML load error message now reports useful error details
+- Parameter errors in XML now report with line numbers
+- Improved formatting of generated LBA listings
+- Directory record entries now handled using `std::vector` arrays (better stability)
+
+**Refactoring:**
+- Replaced char strings with `std::string` inside `DirTreeClass` and associated typedefs
+- Replaced all `strcasecmp()` with custom `compare()` function for full C++14 compatibility
+
+**Fixes:**
+- Fixed corrupt file names displayed when packing files
+- Fixed corrupt directory names and minor formatting issues in generated LBA header files
+
+**Project:**
+- Included Netbeans 8.1 project
+- Removed mkisoxml from download temporarily (too buggy, source still available)
+
+## Version 1.15 (6/16/2017)
+
+### mkpsxiso
+
+**Improvements:**
+- Directory record lengths tweaked to calculate in sector multiples instead of actual bytes
+- Makes ISOs fully ISO9660 compliant
+- ISO tools that previously rejected mkpsxiso images should no longer complain
+- Improved XA attribute header encoding
+
+**Documentation:**
+- Re-done README text
+
+## Version 1.14 (6/4/2017)
+
+### mkpsxiso
+
+**New Features:**
+- Name attribute of file entries can be omitted if source attribute present
+- Added `-lba` option to produce complete listing of files/directories with LBA addresses
+- Added `-noisogen` to disable ISO generation (useful for generating only LBA listing)
+- Added `-lbahead` similar to `-lba` but outputs in C header format
+- Added optional `srcdir` attribute for directory_tree and dir elements
+
+**Fixes:**
+- Fixed typo in help text (referenced `-lba` as `-lbalist`)
+- Fixed system and application identifiers not defaulting to PLAYSTATION when blank
+- Fixed bug reporting error on multi-disc project when only one ISO project exists
+- Fixed major LBA calculation bug with files past directory records spanning multiple sectors
+- Fixed file overwrite confirmation prompted when `-noisogen` specified
+- Fixed bug where directory record length always written as 2048 bytes
+- Fixed 0 byte image file produced on error when using `-o` parameter
+
+**Improvements:**
+- Changed format of file LBA log completely (more information, no tree style)
+- Changed char* strings to `std::string` strings
+- Can now handle as many files/directories as ISO9660 can handle without crashing
+- 2 second pregaps generated for CD audio tracks 3 onwards in projects with CD Audio
+
+**Tools:**
+- Added crude mkisoxml utility for generating basic ISO XML projects from directory
+
+## Version 1.10 (2/23/2017)
+
+### mkpsxiso
+
+**Features:**
+- Can now handle as many files/directories as ISO9660 filesystem can handle
+- 2 second pregaps now generated for CD audio tracks 3 and onwards
+- Added `-noisogen` to disable ISO generation
+- Added `-lbahead` for C header format LBA output
+
+**Fixes:**
+- Fixed 0 byte image file when error occurs with `-o` parameter
+
+**New Attributes:**
+- Added optional `srcdir` attribute for directory_tree and dir elements
+
+## Version 1.06 (11/28/2016)
+
+### mkpsxiso
+
+**New Features:**
+- Added file overwrite confirmation
+- Element and attribute strings no longer case sensitive
+- Added `-lba` option for complete file/directory listing with LBA addresses
+
+**Improvements:**
+- File name strings from arguments no longer passed as duplicated strings
+- Eliminates risk of forgetting to dealloc strings on exit
+
+**Documentation:**
+- Added `-dummy-` element example in example.xml
+
+## Version 1.05 (by electroCupcake)
+
+### mkpsxiso
+
+**Build Improvements:**
+- Fixed types for Linux build (changed `u_char` to `unsigned char`)
+- Changed `XML_NO_ERROR` to `XML_SUCCESS` for Cygwin64 compatibility
+- Converted to cmake
+- Can generate CodeBlocks project with `cmake . -G "CodeBlocks - Unix Makefiles"`
+
+## Version 1.04 (9/1/2016)
+
+### mkpsxiso
+
+**Fixes:**
+- Fixed "Data track must only be on first track" error when creating ISO with 2+ tracks (CD audio)
+- Duplicate file and directory entries no longer possible to add
+
+## Version 1.00 (8/6/2016)
+
+### Initial Release
+
+**Core Features:**
+- XML-based ISO project scripting
+- ISO and bin+cue image format output
+- License data injection
+- File LBA control by order
+- Mixed-mode CD-XA stream file support
+- CDDA audio track support
+- File packing log with LBA, size, and timecode
+- ISO9660 compliant output

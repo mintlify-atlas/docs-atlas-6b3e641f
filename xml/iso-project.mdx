@@ -1,0 +1,212 @@
+---
+title: ISO Project Element
+description: Root element configuration for mkpsxiso disc image projects
+---
+
+The `<iso_project>` element is the root container for a disc image project. Each element defines a complete PlayStation ISO image with its tracks, file system, and metadata.
+
+## Basic Structure
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<iso_project image_name="myimage.bin" cue_sheet="myimage.cue" no_xa="0">
+  <!-- Track elements go here -->
+</iso_project>
+```
+
+## Attributes
+
+<ParamField path="image_name" type="string" required>
+  File name of the ISO image file to generate. Typically uses `.bin` extension.
+  
+  This can be overridden using the `-o` or `--output` command-line option.
+</ParamField>
+
+<ParamField path="cue_sheet" type="string">
+  File name of the cue sheet to generate for the image file.
+  
+  **Required when:**
+  - More than one track is specified
+  - Using CD-DA audio tracks
+  
+  This can be overridden using the `-c` or `--cuefile` command-line option.
+</ParamField>
+
+<ParamField path="no_xa" type="boolean" default="0">
+  If set to a non-zero value (e.g., `1` or `true`), creates the image without CD-XA extended file attributes, resulting in a plain ISO9660 image.
+  
+  XA data (like STR videos and XA audio) can still be included but this is not recommended.
+</ParamField>
+
+## Examples
+
+### Single Track Data Disc
+
+```xml
+<iso_project image_name="game.bin">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAME"
+    />
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="system.txt"/>
+      <file name="GAME.EXE" source="game.exe"/>
+    </directory_tree>
+  </track>
+</iso_project>
+```
+
+### Multi-Track Disc with Audio
+
+```xml
+<iso_project image_name="musicgame.bin" cue_sheet="musicgame.cue">
+  <track type="data" xa_edc="true">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="MUSICGAME"
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="system.txt"/>
+      <file name="GAME.EXE" source="game.exe"/>
+      <file name="TRACK02.DA" trackid="02" type="da"/>
+    </directory_tree>
+  </track>
+  
+  <track type="audio" trackid="02" source="bgm01.wav"/>
+  <track type="audio" source="bgm02.wav"/>
+</iso_project>
+```
+
+### Plain ISO9660 (No XA)
+
+```xml
+<iso_project image_name="data.bin" no_xa="1">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="DATA"
+    />
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="system.txt"/>
+      <file name="DATA.DAT" source="data.dat"/>
+    </directory_tree>
+  </track>
+</iso_project>
+```
+
+## Multi-Disc Projects
+
+Multiple `<iso_project>` elements can be specified in a single XML file for multi-disc game projects:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Disc 1 -->
+<iso_project image_name="game_disc1.bin" cue_sheet="game_disc1.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAME_DISC1"
+      volume_set="GAME_TRILOGY"
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="disc1/system.txt"/>
+      <file name="GAME.EXE" source="disc1/game.exe"/>
+    </directory_tree>
+  </track>
+</iso_project>
+
+<!-- Disc 2 -->
+<iso_project image_name="game_disc2.bin" cue_sheet="game_disc2.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAME_DISC2"
+      volume_set="GAME_TRILOGY"
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="disc2/system.txt"/>
+      <file name="GAME.EXE" source="disc2/game.exe"/>
+    </directory_tree>
+  </track>
+</iso_project>
+
+<!-- Disc 3 -->
+<iso_project image_name="game_disc3.bin" cue_sheet="game_disc3.cue">
+  <track type="data">
+    <identifiers
+      system="PLAYSTATION"
+      application="PLAYSTATION"
+      volume="GAME_DISC3"
+      volume_set="GAME_TRILOGY"
+    />
+    <license file="licensea.dat"/>
+    <directory_tree>
+      <file name="SYSTEM.CNF" source="disc3/system.txt"/>
+      <file name="GAME.EXE" source="disc3/game.exe"/>
+    </directory_tree>
+  </track>
+</iso_project>
+```
+
+<Note>
+  When using multi-disc projects, the `-o`, `-c`, and `-L` command-line options cannot be used as they would apply to all discs.
+</Note>
+
+## Required Child Elements
+
+Each `<iso_project>` must contain at least one `<track>` element:
+
+- The first track should be a **data track** (`type="data"`)
+- Additional **audio tracks** (`type="audio"`) are optional
+
+See [Tracks](/xml/tracks) for detailed track configuration.
+
+## Command-Line Overrides
+
+Several attributes can be overridden via command-line options:
+
+| Attribute | Command-Line Option | Description |
+|-----------|---------------------|-------------|
+| `image_name` | `-o`, `--output` | Override output image file name |
+| `cue_sheet` | `-c`, `--cuefile` | Override cue sheet file name |
+| - | `-L`, `--license` | Override license file |
+| - | `-l`, `--label` | Override volume identifier |
+
+Example:
+```bash
+mkpsxiso -o custom.bin -c custom.cue -l CUSTOMVOL project.xml
+```
+
+## Validation
+
+mkpsxiso validates the project structure:
+
+- At least one `<track>` element must be present
+- The first track must be a data track
+- If audio tracks are present, `cue_sheet` must be specified
+- Data tracks must include a `<directory_tree>` element
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tracks" icon="compact-disc" href="/xml/tracks">
+    Configure data and audio tracks
+  </Card>
+  <Card title="Identifiers" icon="tag" href="/xml/identifiers">
+    Set volume and system identifiers
+  </Card>
+  <Card title="Directory Tree" icon="folder-tree" href="/xml/directory-tree">
+    Define the file system structure
+  </Card>
+</CardGroup>

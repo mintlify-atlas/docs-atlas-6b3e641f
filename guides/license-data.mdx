@@ -1,0 +1,449 @@
+---
+title: PlayStation License Data
+description: Learn how to properly inject Sony license data into PlayStation ISOs for bootable discs
+---
+
+PlayStation license data is required for discs to boot on official PlayStation hardware. This guide explains how to obtain, inject, and extract license data.
+
+## What is License Data?
+
+License data is:
+
+- Sony's copyright and licensing information
+- Stored in sectors 0-11 of the disc (first 12 sectors)
+- Required for the PlayStation BIOS to boot the disc
+- Region-specific (different for Japan, USA, Europe)
+- In raw 2336-byte sector format
+
+## Why License Data Matters
+
+Without proper license data:
+
+- The disc will not boot on real PlayStation hardware
+- The BIOS will show "Please insert PlayStation CD-ROM"
+- Emulators may work without it (they often skip license checks)
+- The disc is not a legitimate PlayStation disc
+
+<Warning>
+mkpsxiso does not include license data to avoid legal issues. You must supply your own licensed copy from the PsyQ SDK or other legitimate source.
+</Warning>
+
+## Obtaining License Data
+
+### From PsyQ SDK
+
+The official PlayStation Programmer's Tool SDK includes license files:
+
+```
+PS/CDGEN/LCNSFILE/
+├── LICENSEA.DAT  (Americas/USA)
+├── LICENSEE.DAT  (Europe)
+└── LICENSEJ.DAT  (Japan)
+```
+
+These files are in the correct raw 2336-byte sector format.
+
+### From Existing Discs
+
+Extract license data from official PlayStation discs:
+
+```bash
+dumpsxiso -x game.bin
+```
+
+This extracts `licensea.dat`, `licensee.dat`, or `licensej.dat` depending on the disc region.
+
+<Tip>
+Extracted license data can be reused in your own homebrew projects, as long as you own the original disc you extracted it from.
+</Tip>
+
+### File Format Requirements
+
+License files must be:
+
+- Exactly **28,032 bytes** (12 sectors × 2,336 bytes)
+- In raw sector format (Mode 2 Form 1)
+- Not corrupted or modified
+- From a legitimate PlayStation disc or SDK
+
+## Adding License Data to ISOs
+
+<Steps>
+
+<Step title="Locate License File">
+
+Ensure you have a license file:
+
+```bash
+ls -lh licensea.dat
+# Should show: -rw-r--r-- 1 user user 28032 ...
+```
+
+Verify the file size is exactly 28,032 bytes.
+
+</Step>
+
+<Step title="Add to XML Project">
+
+Include the license element in your data track:
+
+```xml
+<track type="data">
+  
+  <identifiers
+    system="PLAYSTATION"
+    application="PLAYSTATION"
+    volume="MYDISC"
+  />
+  
+  <!-- Add license file -->
+  <license file="licensea.dat"/>
+  
+  <directory_tree>
+    <!-- Your files here -->
+  </directory_tree>
+  
+</track>
+```
+
+</Step>
+
+<Step title="Verify Path">
+
+The license file path is relative to your XML file:
+
+```xml
+<!-- Same directory as XML -->
+<license file="licensea.dat"/>
+
+<!-- Subdirectory -->
+<license file="licenses/licensea.dat"/>
+
+<!-- Absolute path -->
+<license file="/path/to/licensea.dat"/>
+```
+
+</Step>
+
+<Step title="Build and Verify">
+
+Build your ISO:
+
+```bash
+mkpsxiso myproject.xml
+```
+
+Check for license-related messages:
+
+```
+License: licensea.dat
+License data injected successfully
+```
+
+If you see errors about invalid sectors, verify your license file is correct.
+
+</Step>
+
+</Steps>
+
+## Region-Specific License Files
+
+### Americas (NTSC-U)
+
+```xml
+<license file="licensea.dat"/>
+```
+
+Use for:
+- North America
+- South America
+- NTSC-U/C regions
+
+### Europe (PAL)
+
+```xml
+<license file="licensee.dat"/>
+```
+
+Use for:
+- Europe
+- Australia
+- PAL regions
+
+### Japan (NTSC-J)
+
+```xml
+<license file="licensej.dat"/>
+```
+
+Use for:
+- Japan
+- NTSC-J region
+
+<Note>
+The region of your license data should match your game's target region. Using the wrong region may prevent the disc from booting on region-locked consoles.
+</Note>
+
+## License Data Structure
+
+License sectors contain:
+
+### Sector Layout
+
+```
+Sector 0-11: License data (12 sectors)
+Sector 12: Primary Volume Descriptor
+Sector 13+: Path tables and file data
+```
+
+### Sector Format
+
+Each license sector:
+
+- **2336 bytes** per sector
+- Mode 2 Form 1 format
+- Contains copyright text and boot code
+- Has error detection (EDC) and correction (ECC)
+
+### What's Inside
+
+License data includes:
+
+- Sony Computer Entertainment copyright
+- Licensed by Sony text
+- Region-specific information
+- Boot validation code
+
+## Building Without License Data
+
+You can build ISOs without license data:
+
+```xml
+<track type="data">
+  <identifiers
+    system="PLAYSTATION"
+    application="PLAYSTATION"
+    volume="MYDISC"
+  />
+  
+  <!-- No <license> element -->
+  
+  <directory_tree>
+    <!-- Your files -->
+  </directory_tree>
+</track>
+```
+
+The resulting ISO:
+
+- Will work in most emulators
+- Will NOT boot on real hardware
+- Has invalid/empty sectors 0-11
+
+<Warning>
+Without a license file, mkpsxiso generates invalid sectors for positions 0-11. These sectors will not pass PlayStation BIOS validation.
+</Warning>
+
+## Extracting License Data
+
+Use dumpsxiso to extract license data from existing ISOs:
+
+### Standard Extraction
+
+```bash
+dumpsxiso -x game.bin
+```
+
+Extracts to:
+```
+game/
+├── licensea.dat  (or licensee.dat / licensej.dat)
+├── game.xml
+└── ... other files ...
+```
+
+### XML Without Extraction
+
+```bash
+dumpsxiso game.bin
+```
+
+Generates `game.xml` with license reference:
+
+```xml
+<license file="licensea.dat"/>
+```
+
+### Skip License Extraction
+
+```bash
+dumpsxiso -x game.bin --noxml
+```
+
+Extracts files but not the license or XML.
+
+## Validating License Files
+
+### Check File Size
+
+```bash
+ls -l licensea.dat
+# Should be exactly 28032 bytes
+```
+
+### Check Content
+
+License files should contain visible Sony copyright text:
+
+```bash
+strings licensea.dat | head -5
+```
+
+Expected output includes:
+```
+Licensed by
+Sony Computer Entertainment Inc.
+```
+
+### Test in Build
+
+Build a test ISO and verify:
+
+```bash
+mkpsxiso test.xml
+# Check console output for license messages
+```
+
+No errors about invalid sectors means the license file is correct.
+
+## Common Issues
+
+### Wrong File Size
+
+If your license file isn't 28,032 bytes:
+
+- File is corrupted or truncated
+- Wrong file format (not raw sectors)
+- Downloaded incorrectly
+
+**Solution**: Re-obtain from PsyQ SDK or extract from a known-good disc.
+
+### Invalid Sector Warnings
+
+If mkpsxiso reports invalid sectors:
+
+- License file is corrupted
+- File is not in raw 2336-byte format
+- License data has been modified
+
+**Solution**: Use an unmodified license file from the SDK or official disc.
+
+### Disc Won't Boot
+
+If the built disc doesn't boot:
+
+- Verify license file is included
+- Check region matches your console
+- Ensure system and application identifiers are "PLAYSTATION"
+- Test on different hardware/emulators
+
+### File Path Errors
+
+If mkpsxiso can't find the license file:
+
+- Check path is correct relative to XML
+- Verify file exists at specified location
+- Use absolute path if needed
+
+## Best Practices
+
+<Tip>
+**License Data Best Practices:**
+- Keep original, unmodified license files
+- Organize by region (licensea.dat, licensee.dat, licensej.dat)
+- Store in a dedicated licenses/ directory
+- Never modify license file contents
+- Document source of license files
+- Back up license files securely
+</Tip>
+
+### Project Organization
+
+```
+project/
+├── licenses/
+│   ├── licensea.dat  (Americas)
+│   ├── licensee.dat  (Europe)
+│   └── licensej.dat  (Japan)
+├── src/
+│   └── game files...
+└── project.xml
+```
+
+Reference in XML:
+
+```xml
+<license file="licenses/licensea.dat"/>
+```
+
+### Multi-Region Projects
+
+Build different regions:
+
+```xml
+<!-- usa.xml -->
+<iso_project image_name="game_usa.bin" cue_sheet="game_usa.cue">
+  <track type="data">
+    <license file="licenses/licensea.dat"/>
+    <!-- ... -->
+  </track>
+</iso_project>
+```
+
+```xml
+<!-- europe.xml -->
+<iso_project image_name="game_pal.bin" cue_sheet="game_pal.cue">
+  <track type="data">
+    <license file="licenses/licensee.dat"/>
+    <!-- ... -->
+  </track>
+</iso_project>
+```
+
+## Legal Considerations
+
+License data is copyrighted by Sony Computer Entertainment:
+
+- Only use with licensed PlayStation development
+- Don't distribute license files publicly
+- Only extract from discs you own
+- Use for homebrew and development purposes
+- Respect Sony's intellectual property
+
+<Note>
+This guide provides technical information about license data format and usage. It does not constitute legal advice. Ensure your use complies with Sony's licensing terms and applicable laws.
+</Note>
+
+## Reference
+
+### License File Naming
+
+| Region | Filename | Territory |
+|--------|----------|----------|
+| Americas | licensea.dat | NTSC-U/C, North/South America |
+| Europe | licensee.dat | PAL, Europe, Australia |
+| Japan | licensej.dat | NTSC-J, Japan |
+
+### Sector Information
+
+- **Sectors**: 0-11 (12 total)
+- **Size**: 2,336 bytes per sector
+- **Total**: 28,032 bytes
+- **Format**: Mode 2 Form 1
+- **Position**: Start of disc (LBA 0)
+
+## Next Steps
+
+- Learn about [Building ISOs](/guides/building-iso) with license data
+- Extract license from games using [Dumping ISOs](/guides/dumping-iso)
+- Optimize disc layout with [LBA Optimization](/guides/lba-optimization)
